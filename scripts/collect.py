@@ -8,6 +8,8 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
     "Accept-Language": "zh-CN,zh;q=0.9",
 }
+
+# 내자/외자 목록 페이지
 INDEX_URLS = {
     "内资": "https://www.nppa.gov.cn/bsfw/jggs/yxspjg/index.html",
     "外资": "https://www.nppa.gov.cn/bsfw/jggs/wzyxspjg/index.html",
@@ -18,26 +20,52 @@ def fetch(url):
     r.raise_for_status()
     return r.text
 
-def get_latest_url(html):
+def get_latest_url(html, base_url):
     soup = BeautifulSoup(html, "html.parser")
-    for a in soup.select("a[href]"):
-        href = a["href"]
-        if ".html" in href and ("yxsp" in href or "jggs" in href):
+    # 모든 링크 출력해서 확인
+    links = soup.select("a[href]")
+    print(f"  발견된 링크 수: {len(links)}")
+    for a in links[:10]:
+        print(f"  링크: {a.get('href')} | 텍스트: {a.get_text(strip=True)[:30]}")
+    
+    # 링크 추출 시도
+    for a in links:
+        href = a.get("href", "")
+        text = a.get_text(strip=True)
+        # 판호 관련 링크 찾기
+        if any(kw in href for kw in [".html", ".htm"]) and any(kw in text for kw in ["批准", "游戏", "进口", "国产", "2024", "2025", "2026"]):
             if href.startswith("http"):
                 return href
-            if href.startswith("/"):
+            elif href.startswith("/"):
+                return "https://www.nppa.gov.cn" + href
+            else:
+                base = base_url.rsplit("/", 1)[0]
+                return base + "/" + href
+    
+    # 못 찾으면 첫 번째 .html 링크라도 반환
+    for a in links:
+        href = a.get("href", "")
+        if ".html" in href and href != "#":
+            if href.startswith("http"):
+                return href
+            elif href.startswith("/"):
                 return "https://www.nppa.gov.cn" + href
     return None
 
 def parse_table(html, license_type):
     soup = BeautifulSoup(html, "html.parser")
-    table = soup.find("table")
-    if not table:
+    tables = soup.find_all("table")
+    print(f"  테이블 수: {len(tables)}")
+    
+    if not tables:
         return []
+    
+    # 가장 많은 행을 가진 테이블 선택
+    table = max(tables, key=lambda t: len(t.find_all("tr")))
     rows = []
     for tr in table.find_all("tr")[1:]:
         tds = tr.find_all("td")
-        if len(tds) < 4:
+        if len(tds) < 3:
             continue
         cols = [td.get_text(strip=True) for td in tds]
         rows.append({
@@ -58,11 +86,12 @@ def save_json(data, year_month, license_type):
     print(f"  저장 완료: {path} ({len(data)}건)")
 
 def update_index():
+    os.makedirs("data", exist_ok=True)
     files = sorted([f for f in os.listdir("data")
                     if f.endswith(".json") and f != "index.json"], reverse=True)
     entries = []
     for f in files:
-        parts = f.replace(".json","").split("-")
+        parts = f.replace(".json", "").split("-")
         if len(parts) >= 3:
             entries.append({
                 "file": f,
@@ -77,15 +106,17 @@ def run():
     ym = datetime.now().strftime("%Y-%m")
     print(f"\n=== {ym} 판호 수집 시작 ===\n")
     for license_type, url in INDEX_URLS.items():
-        print(f"[{license_type}] 접근 중...")
+        print(f"[{license_type}] 접근 중... {url}")
         try:
             html = fetch(url)
-            notice_url = get_latest_url(html)
+            print(f"  페이지 로드 성공 ({len(html)} bytes)")
+            notice_url = get_latest_url(html, url)
             if not notice_url:
-                print("  공시 링크 없음")
-                continue
-            print(f"  공시 URL: {notice_url}")
-            data = parse_table(fetch(notice_url), license_type)
+                print("  공시 링크 없음 — 목록 페이지에서 직접 파싱 시도")
+                data = parse_table(html, license_type)
+            else:
+                print(f"  공시 URL: {notice_url}")
+                data = parse_table(fetch(notice_url), license_type)
             print(f"  전체 {len(data)}건 파싱")
             if license_type == "内资":
                 data = [d for d in data if is_major_company(d["company"])]
@@ -94,6 +125,7 @@ def run():
         except Exception as e:
             print(f"  오류: {e}")
     update_index()
+    print("\n=== 완료 ===")
 
 if __name__ == "__main__":
     run()
