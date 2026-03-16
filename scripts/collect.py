@@ -1,6 +1,6 @@
 import httpx
 from bs4 import BeautifulSoup
-import json, os
+import json, os, re
 from datetime import datetime
 from major_companies import is_major_company
 
@@ -9,10 +9,10 @@ HEADERS = {
     "Accept-Language": "zh-CN,zh;q=0.9",
 }
 
-# 내자/외자 목록 페이지
+# 국산/진口 목록 페이지 (서브 경로 다름)
 INDEX_URLS = {
-    "内资": "https://www.nppa.gov.cn/bsfw/jggs/yxspjg/index.html",
-    "外资": "https://www.nppa.gov.cn/bsfw/jggs/wzyxspjg/index.html",
+    "内资": "https://www.nppa.gov.cn/bsfw/jggs/yxspjg/gcwlyxspxx/index.html",
+    "外资": "https://www.nppa.gov.cn/bsfw/jggs/yxspjg/jkwlyxspxx/index.html",
 }
 
 def fetch(url):
@@ -22,18 +22,14 @@ def fetch(url):
 
 def get_latest_url(html, base_url):
     soup = BeautifulSoup(html, "html.parser")
-    # 모든 링크 출력해서 확인
     links = soup.select("a[href]")
     print(f"  발견된 링크 수: {len(links)}")
-    for a in links[:10]:
+    for a in links[:15]:
         print(f"  링크: {a.get('href')} | 텍스트: {a.get_text(strip=True)[:30]}")
-    
-    # 링크 추출 시도
+
     for a in links:
         href = a.get("href", "")
-        text = a.get_text(strip=True)
-        # 판호 관련 링크 찾기
-        if any(kw in href for kw in [".html", ".htm"]) and any(kw in text for kw in ["批准", "游戏", "进口", "国产", "2024", "2025", "2026"]):
+        if re.search(r't\d{13}\.html', href) or re.search(r't\d{4}\d+_\d+\.html', href):
             if href.startswith("http"):
                 return href
             elif href.startswith("/"):
@@ -41,26 +37,26 @@ def get_latest_url(html, base_url):
             else:
                 base = base_url.rsplit("/", 1)[0]
                 return base + "/" + href
-    
-    # 못 찾으면 첫 번째 .html 링크라도 반환
+
+    # 폴백: 연도/월 포함된 링크
     for a in links:
         href = a.get("href", "")
-        if ".html" in href and href != "#":
+        if re.search(r'/202\d{3}/', href) and ".html" in href:
             if href.startswith("http"):
                 return href
             elif href.startswith("/"):
                 return "https://www.nppa.gov.cn" + href
+            else:
+                base = base_url.rsplit("/", 1)[0]
+                return base + "/" + href
     return None
 
 def parse_table(html, license_type):
     soup = BeautifulSoup(html, "html.parser")
     tables = soup.find_all("table")
     print(f"  테이블 수: {len(tables)}")
-    
     if not tables:
         return []
-    
-    # 가장 많은 행을 가진 테이블 선택
     table = max(tables, key=lambda t: len(t.find_all("tr")))
     rows = []
     for tr in table.find_all("tr")[1:]:
@@ -112,7 +108,7 @@ def run():
             print(f"  페이지 로드 성공 ({len(html)} bytes)")
             notice_url = get_latest_url(html, url)
             if not notice_url:
-                print("  공시 링크 없음 — 목록 페이지에서 직접 파싱 시도")
+                print("  공시 링크 없음 — 목록 페이지에서 직접 파싱")
                 data = parse_table(html, license_type)
             else:
                 print(f"  공시 URL: {notice_url}")
