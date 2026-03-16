@@ -1,121 +1,70 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState, useEffect } from "react"
+import MonthTabs from "./components/MonthTabs"
+import DomesticTable from "./components/DomesticTable"
+import ForeignTable from "./components/ForeignTable"
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [index, setIndex]       = useState([])
+  const [month, setMonth]       = useState("")
+  const [domestic, setDomestic] = useState([])
+  const [foreign, setForeign]   = useState([])
+  const [loading, setLoading]   = useState(true)
+
+  useEffect(() => {
+    fetch("/Chinese-game-Version-Number-Site/data/index.json")
+      .then(r => r.json())
+      .then(data => {
+        setIndex(data)
+        const latest = data.find(d => d.type === "外资")
+        if (latest) setMonth(latest.year_month)
+      })
+      .catch(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    if (!month) return
+    setLoading(true)
+    const base = "/Chinese-game-Version-Number-Site/data"
+    const load = (type) =>
+      fetch(`${base}/${month}-${type}.json`)
+        .then(r => r.ok ? r.json() : [])
+        .catch(() => [])
+
+    Promise.all([load("内资"), load("外资")]).then(([dom, for_]) => {
+      setDomestic(dom)
+      setForeign(for_)
+      setLoading(false)
+    })
+  }, [month])
+
+  const months = [...new Set(index.map(d => d.year_month))].sort().reverse()
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 16px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>
+          🇨🇳 중국 게임 판호 모니터
+        </h1>
+        <p style={{ color: "#888", fontSize: 14, margin: "6px 0 0" }}>
+          국가신문출판서(NPPA) 공식 데이터 · 매월 자동 업데이트
+        </p>
+      </div>
 
-      <div className="ticks"></div>
+      <MonthTabs months={months} selected={month} onChange={setMonth} />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      {loading ? (
+        <p style={{ color: "#999", marginTop: 32 }}>로딩 중...</p>
+      ) : (
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 24, marginTop: 24
+        }}>
+          <DomesticTable data={domestic} />
+          <ForeignTable data={foreign} />
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      )}
+    </div>
   )
 }
-
-export default App
