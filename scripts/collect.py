@@ -2,14 +2,12 @@ import httpx
 from bs4 import BeautifulSoup
 import json, os, re
 from datetime import datetime
-from major_companies import is_major_company
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
     "Accept-Language": "zh-CN,zh;q=0.9",
 }
 
-# 국산/진口 목록 페이지 (서브 경로 다름)
 INDEX_URLS = {
     "内资": "https://www.nppa.gov.cn/bsfw/jggs/yxspjg/gcwlyxspxx/index.html",
     "外资": "https://www.nppa.gov.cn/bsfw/jggs/yxspjg/jkwlyxspxx/index.html",
@@ -38,7 +36,6 @@ def get_latest_url(html, base_url):
                 base = base_url.rsplit("/", 1)[0]
                 return base + "/" + href
 
-    # 폴백: 연도/월 포함된 링크
     for a in links:
         href = a.get("href", "")
         if re.search(r'/202\d{3}/', href) and ".html" in href:
@@ -114,9 +111,6 @@ def run():
                 print(f"  공시 URL: {notice_url}")
                 data = parse_table(fetch(notice_url), license_type)
             print(f"  전체 {len(data)}건 파싱")
-            if license_type == "内资":
-                data = [d for d in data if is_major_company(d["company"])]
-                print(f"  주요 게임사 필터 후 {len(data)}건")
             save_json(data, ym, license_type)
         except Exception as e:
             print(f"  오류: {e}")
