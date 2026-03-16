@@ -6,10 +6,16 @@ on:
   workflow_dispatch:
 
 jobs:
-  collect:
+  collect-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - uses: actions/checkout@v4
@@ -29,23 +35,6 @@ jobs:
           git config user.email "bot@noreply.github.com"
           git add data/
           git diff --cached --quiet || (git commit -m "판호 업데이트" && git push)
-
-  deploy:
-    needs: collect
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
 
       - uses: actions/setup-node@v4
         with:
