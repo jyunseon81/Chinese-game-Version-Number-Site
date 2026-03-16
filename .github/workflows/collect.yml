@@ -1,9 +1,9 @@
-name: 판호 수집
+﻿name: 판호 수집
 
 on:
   schedule:
-    - cron: '0 2 20 * *'   # 매월 20일 오전 2시 UTC (NPPA 공시 후 여유)
-  workflow_dispatch:         # 수동 실행 가능
+    - cron: '0 2 20 * *'
+  workflow_dispatch:
 
 jobs:
   collect-and-deploy:
