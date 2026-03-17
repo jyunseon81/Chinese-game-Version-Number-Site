@@ -60,18 +60,28 @@ def parse_table(html, license_type):
         if len(tds) < 3:
             continue
         cols = [td.get_text(strip=True) for td in tds]
-        # 실제 순서: 序号, 名称, 运营单位, 出版单位, 批复文号, ISBN, 批准时间
         rows.append({
             "seq":            cols[0] if len(cols) > 0 else "",
             "game_name":      cols[1] if len(cols) > 1 else "",
-            "operator":       cols[2] if len(cols) > 2 else "",  # 운영사
-            "publisher":      cols[3] if len(cols) > 3 else "",  # 출판사
-            "license_number": cols[4] if len(cols) > 4 else "",  # 판호번호
-            "isbn":           cols[5] if len(cols) > 5 else "",  # ISBN
-            "approved_date":  cols[6] if len(cols) > 6 else "",  # 승인일
+            "operator":       cols[2] if len(cols) > 2 else "",
+            "publisher":      cols[3] if len(cols) > 3 else "",
+            "license_number": cols[4] if len(cols) > 4 else "",
+            "isbn":           cols[5] if len(cols) > 5 else "",
+            "approved_date":  cols[6] if len(cols) > 6 else "",
             "type":           license_type,
         })
     return rows
+
+def filter_by_month(data, year_month):
+    """approved_date 기준으로 해당 월 데이터만 필터링
+    예: year_month='2026-03', approved_date='2026年03月15日' → 포함
+    """
+    year, month = year_month.split("-")
+    # 2026年03月 형식으로 변환
+    target = f"{year}年{month}月"
+    filtered = [d for d in data if target in d.get("approved_date", "")]
+    print(f"  날짜 필터 ({target}): {len(data)}건 → {len(filtered)}건")
+    return filtered
 
 def save_json(data, year_month, license_type):
     os.makedirs("data", exist_ok=True)
@@ -112,6 +122,11 @@ def run():
                 print(f"  공시 URL: {notice_url}")
                 data = parse_table(fetch(notice_url), license_type)
             print(f"  전체 {len(data)}건 파싱")
+
+            # 외자만 날짜 필터링 적용
+            if license_type == "外资":
+                data = filter_by_month(data, ym)
+
             save_json(data, ym, license_type)
         except Exception as e:
             print(f"  오류: {e}")
