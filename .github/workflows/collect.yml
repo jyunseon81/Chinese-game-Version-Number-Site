@@ -2,7 +2,7 @@ name: 판호 수집
 
 on:
   schedule:
-    - cron: '0 2 20 * *'
+    - cron: '0 2 * * *'
   workflow_dispatch:
 
 jobs:
