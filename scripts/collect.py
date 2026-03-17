@@ -43,55 +43,37 @@ def get_latest_url(html, base_url):
                 return base + "/" + href
     return None
 
-def get_headers(table):
-    """테이블 헤더 추출"""
-    headers = []
-    header_row = table.find("tr")
-    if header_row:
-        for th in header_row.find_all(["th", "td"]):
-            headers.append(th.get_text(strip=True))
-    return headers
-
 def parse_table(html, license_type):
     soup = BeautifulSoup(html, "html.parser")
     tables = soup.find_all("table")
     if not tables:
         return []
     table = max(tables, key=lambda t: len(t.find_all("tr")))
-    
-    # 헤더 확인
-    headers = get_headers(table)
+
+    headers = []
+    header_row = table.find("tr")
+    if header_row:
+        headers = [th.get_text(strip=True) for th in header_row.find_all(["th", "td"])]
     print(f"  테이블 헤더: {headers}")
-    
+
     rows = []
     for tr in table.find_all("tr")[1:]:
         tds = tr.find_all("td")
         if len(tds) < 3:
             continue
         cols = [td.get_text(strip=True) for td in tds]
-        
-        # 헤더 기반으로 컬럼 매핑
-        # 내자: 序号, 游戏名称, 申请单位(신청사), 审批编号(판호번호), 出版单位 등
-        # 외자: 序号, 游戏名称, 境外公司(해외회사), 国内申请单位, 审批编号 등
-        if license_type == "外资" and len(cols) >= 5:
-            rows.append({
-                "seq":              cols[0],
-                "game_name":        cols[1],
-                "foreign_company":  cols[2],  # 해외 원작사
-                "cn_company":       cols[3],  # 중국 퍼블리셔
-                "license_number":   cols[4],  # 판호번호
-                "platform":         cols[5] if len(cols) > 5 else "",
-                "type":             license_type,
-            })
-        else:
-            rows.append({
-                "seq":            cols[0],
-                "game_name":      cols[1],
-                "company":        cols[2],
-                "license_number": cols[3] if len(cols) > 3 else "",
-                "platform":       cols[4] if len(cols) > 4 else "",
-                "type":           license_type,
-            })
+        # 序号, 名称, 申报类别, 出版单位, 运营单位, 批复文号, 出版物号, 批准时间
+        rows.append({
+            "seq":            cols[0] if len(cols) > 0 else "",
+            "game_name":      cols[1] if len(cols) > 1 else "",
+            "category":       cols[2] if len(cols) > 2 else "",
+            "publisher":      cols[3] if len(cols) > 3 else "",  # 출판단위
+            "operator":       cols[4] if len(cols) > 4 else "",  # 운영단위
+            "license_number": cols[5] if len(cols) > 5 else "",  # 판호번호
+            "pub_number":     cols[6] if len(cols) > 6 else "",  # 출판물번호
+            "approved_date":  cols[7] if len(cols) > 7 else "",  # 승인일
+            "type":           license_type,
+        })
     return rows
 
 def save_json(data, year_month, license_type):

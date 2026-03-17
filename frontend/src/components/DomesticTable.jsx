@@ -13,13 +13,13 @@ const COMPANY_COLORS = {
 
 function getColor(company) {
   for (const [key, color] of Object.entries(COMPANY_COLORS)) {
-    if (company.includes(key)) return color
+    if (company?.includes(key)) return color
   }
   return "#888"
 }
 
 function isMajor(company) {
-  return MAJOR_COMPANIES.some(k => company.includes(k))
+  return MAJOR_COMPANIES.some(k => company?.includes(k))
 }
 
 export default function DomesticTable({ data }) {
@@ -27,12 +27,18 @@ export default function DomesticTable({ data }) {
   const [selectedCompany, setSelectedCompany] = useState("전체")
 
   const majorInData = ["전체", ...MAJOR_COMPANIES.filter(c =>
-    data.some(d => d.company.includes(c))
+    data.some(d => d.operator?.includes(c) || d.publisher?.includes(c))
   )]
 
   const filtered = data.filter(d => {
-    const matchQuery = d.game_name.includes(query) || d.company.includes(query)
-    const matchCompany = selectedCompany === "전체" || d.company.includes(selectedCompany)
+    const matchQuery =
+      d.game_name?.includes(query) ||
+      d.operator?.includes(query) ||
+      d.publisher?.includes(query)
+    const matchCompany =
+      selectedCompany === "전체" ||
+      d.operator?.includes(selectedCompany) ||
+      d.publisher?.includes(selectedCompany)
     return matchQuery && matchCompany
   })
 
@@ -91,7 +97,7 @@ export default function DomesticTable({ data }) {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead style={{ position: "sticky", top: 0, background: "#fff" }}>
               <tr style={{ borderBottom: "2px solid #f0f0f0" }}>
-                {["게임명", "회사", "판호번호", "플랫폼"].map(h => (
+                {["게임명", "운영사", "판호번호", "승인일"].map(h => (
                   <th key={h} style={{ padding: "8px 10px", textAlign: "left",
                     color: "#999", fontWeight: 500, whiteSpace: "nowrap" }}>{h}</th>
                 ))}
@@ -102,24 +108,27 @@ export default function DomesticTable({ data }) {
                 <tr key={i}
                   style={{
                     borderBottom: "1px solid #f5f5f5",
-                    background: isMajor(d.company) ? getColor(d.company) + "08" : "",
+                    background: isMajor(d.operator) || isMajor(d.publisher)
+                      ? getColor(d.operator || d.publisher) + "08" : "",
                   }}
                   onMouseEnter={e => e.currentTarget.style.background = "#f9f9f9"}
-                  onMouseLeave={e => e.currentTarget.style.background = isMajor(d.company) ? getColor(d.company) + "08" : ""}>
+                  onMouseLeave={e => e.currentTarget.style.background =
+                    isMajor(d.operator) || isMajor(d.publisher)
+                      ? getColor(d.operator || d.publisher) + "08" : ""}>
                   <td style={{ padding: "9px 10px", fontWeight: 500 }}>{d.game_name}</td>
                   <td style={{ padding: "9px 10px" }}>
                     <span style={{
-                      background: getColor(d.company) + "18",
-                      color: getColor(d.company),
+                      background: getColor(d.operator) + "18",
+                      color: getColor(d.operator),
                       borderRadius: 6, padding: "2px 7px",
-                      fontSize: 12, fontWeight: 500, whiteSpace: "nowrap"
+                      fontSize: 12, fontWeight: 500,
                     }}>
-                      {d.company}
+                      {d.operator}
                     </span>
                   </td>
                   <td style={{ padding: "9px 10px", fontFamily: "monospace",
                     color: "#888", fontSize: 12 }}>{d.license_number}</td>
-                  <td style={{ padding: "9px 10px", color: "#aaa", fontSize: 12 }}>{d.platform}</td>
+                  <td style={{ padding: "9px 10px", color: "#aaa", fontSize: 12 }}>{d.approved_date}</td>
                 </tr>
               ))}
             </tbody>
