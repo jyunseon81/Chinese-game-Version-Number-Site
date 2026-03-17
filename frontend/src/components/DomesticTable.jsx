@@ -1,14 +1,20 @@
 import { useState } from "react"
 
 const MAJOR_COMPANIES = [
-  { label: "텐센트",   key: "腾讯",   color: "#1677ff" },
-  { label: "넷이즈",   key: "网易",   color: "#eb2f96" },
-  { label: "미호요",   key: "米哈游", color: "#722ed1" },
-  { label: "37게임즈", key: "三七互娱", color: "#fa8c16" },
-  { label: "탄완",     key: "贪玩",   color: "#13c2c2" },
-  { label: "킹넷",     key: "恺英",   color: "#f5222d" },
-  { label: "타런",     key: "塔人",   color: "#52c41a" },
-  { label: "아워팜",   key: "掌趣",   color: "#faad14" },
+  { label: "텐센트",    key: "腾讯",    color: "#1677ff" },
+  { label: "넷이즈",    key: "网易",    color: "#eb2f96" },
+  { label: "미호요",    key: "米哈游",  color: "#722ed1" },
+  { label: "37게임즈",  key: "三七互娱", color: "#fa8c16" },
+  { label: "탄완",      key: "贪玩",    color: "#13c2c2" },
+  { label: "킹넷",      key: "恺英",    color: "#f5222d" },
+  { label: "타런",      key: "塔人",    color: "#52c41a" },
+  { label: "아워팜",    key: "掌趣",    color: "#faad14" },
+  { label: "4399",     key: "四三九九", color: "#ff6b35" },
+  { label: "빌리빌리",  key: "哔哩哔哩", color: "#00a1d6" },
+  { label: "자이언트",  key: "巨人网络", color: "#7c3aed" },
+  { label: "퍼펙트월드", key: "完美世界", color: "#0ea5e9" },
+  { label: "링시게임즈", key: "灵犀互娱", color: "#d97706" },
+  { label: "바이트댄스", key: "字节跳动", color: "#333333" },
 ]
 
 function getColor(company) {
@@ -55,7 +61,6 @@ export default function DomesticTable({ data }) {
         </span>
       </div>
 
-      {/* 필터 버튼 */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
         <button
           onClick={() => setSelectedKey(null)}
