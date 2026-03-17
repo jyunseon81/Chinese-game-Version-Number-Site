@@ -1,14 +1,14 @@
 import { useState } from "react"
 
 const MAJOR_COMPANIES = [
-  { label: "텐센트",  key: "腾讯",   color: "#1677ff" },
-  { label: "넷이즈",  key: "网易",   color: "#eb2f96" },
-  { label: "미호요",  key: "米哈游", color: "#722ed1" },
+  { label: "텐센트",   key: "腾讯",   color: "#1677ff" },
+  { label: "넷이즈",   key: "网易",   color: "#eb2f96" },
+  { label: "미호요",   key: "米哈游", color: "#722ed1" },
   { label: "37게임즈", key: "三七互娱", color: "#fa8c16" },
-  { label: "탄완",    key: "弹弹堂", color: "#13c2c2" },
-  { label: "킹넷",    key: "卡游",   color: "#f5222d" },
-  { label: "타런",    key: "他人",   color: "#52c41a" },
-  { label: "아워팜",  key: "我们的",  color: "#faad14" },
+  { label: "탄완",     key: "贪玩",   color: "#13c2c2" },
+  { label: "킹넷",     key: "恺英",   color: "#f5222d" },
+  { label: "타런",     key: "塔人",   color: "#52c41a" },
+  { label: "아워팜",   key: "掌趣",   color: "#faad14" },
 ]
 
 function getColor(company) {
@@ -24,17 +24,18 @@ function isMajor(company) {
 
 export default function DomesticTable({ data }) {
   const [query, setQuery] = useState("")
-  const [selectedCompany, setSelectedCompany] = useState("전체")
+  const [selectedKey, setSelectedKey] = useState(null)
 
   const filtered = data.filter(d => {
     const matchQuery =
       d.game_name?.includes(query) ||
       d.operator?.includes(query)
     const matchCompany =
-      selectedCompany === "전체" ||
-      d.operator?.includes(selectedCompany)
+      !selectedKey || d.operator?.includes(selectedKey)
     return matchQuery && matchCompany
   })
+
+  const selectedInfo = MAJOR_COMPANIES.find(c => c.key === selectedKey)
 
   return (
     <div style={{
@@ -56,28 +57,26 @@ export default function DomesticTable({ data }) {
 
       {/* 필터 버튼 */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-        {/* 전체 버튼 */}
         <button
-          onClick={() => setSelectedCompany("전체")}
+          onClick={() => setSelectedKey(null)}
           style={{
             padding: "4px 12px", borderRadius: 12, fontSize: 12,
             border: "1px solid",
-            borderColor: selectedCompany === "전체" ? "#1a73e8" : "#e8e8e8",
-            background: selectedCompany === "전체" ? "#1a73e8" : "#fafafa",
-            color: selectedCompany === "전체" ? "#fff" : "#666",
-            cursor: "pointer", fontWeight: selectedCompany === "전체" ? 600 : 400,
+            borderColor: !selectedKey ? "#1a73e8" : "#e8e8e8",
+            background: !selectedKey ? "#1a73e8" : "#fafafa",
+            color: !selectedKey ? "#fff" : "#666",
+            cursor: "pointer", fontWeight: !selectedKey ? 600 : 400,
           }}>
           전체
         </button>
 
-        {/* 주요 게임사 버튼 */}
         {MAJOR_COMPANIES.map(c => {
           const count = data.filter(d => d.operator?.includes(c.key)).length
-          const isSelected = selectedCompany === c.key
+          const isSelected = selectedKey === c.key
           return (
             <button
               key={c.key}
-              onClick={() => setSelectedCompany(isSelected ? "전체" : c.key)}
+              onClick={() => setSelectedKey(isSelected ? null : c.key)}
               style={{
                 padding: "4px 12px", borderRadius: 12, fontSize: 12,
                 border: "1px solid",
@@ -94,8 +93,7 @@ export default function DomesticTable({ data }) {
                   marginLeft: 4,
                   background: isSelected ? "rgba(255,255,255,0.3)" : c.color + "22",
                   color: isSelected ? "#fff" : c.color,
-                  borderRadius: 8, padding: "0 5px",
-                  fontSize: 11,
+                  borderRadius: 8, padding: "0 5px", fontSize: 11,
                 }}>
                   {count}
                 </span>
@@ -119,9 +117,9 @@ export default function DomesticTable({ data }) {
 
       {filtered.length === 0 ? (
         <p style={{ color: "#ccc", textAlign: "center", padding: "24px 0", fontSize: 14 }}>
-          {selectedCompany === "전체" ? "데이터가 없습니다" : `이번 달 ${
-            MAJOR_COMPANIES.find(c => c.key === selectedCompany)?.label
-          } 판호가 없습니다`}
+          {selectedKey
+            ? `이번 달 ${selectedInfo?.label} 판호가 없습니다`
+            : "데이터가 없습니다"}
         </p>
       ) : (
         <div style={{ overflowX: "auto", maxHeight: 600, overflowY: "auto" }}>
