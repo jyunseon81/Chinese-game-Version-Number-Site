@@ -21,10 +21,6 @@ def fetch(url):
 def get_latest_url(html, base_url):
     soup = BeautifulSoup(html, "html.parser")
     links = soup.select("a[href]")
-    print(f"  발견된 링크 수: {len(links)}")
-    for a in links[:15]:
-        print(f"  링크: {a.get('href')} | 텍스트: {a.get_text(strip=True)[:30]}")
-
     for a in links:
         href = a.get("href", "")
         if re.search(r't\d{13}\.html', href) or re.search(r't\d{4}\d+_\d+\.html', href):
@@ -35,7 +31,6 @@ def get_latest_url(html, base_url):
             else:
                 base = base_url.rsplit("/", 1)[0]
                 return base + "/" + href
-
     for a in links:
         href = a.get("href", "")
         if re.search(r'/202\d{3}/', href) and ".html" in href:
@@ -48,27 +43,55 @@ def get_latest_url(html, base_url):
                 return base + "/" + href
     return None
 
+def get_headers(table):
+    """테이블 헤더 추출"""
+    headers = []
+    header_row = table.find("tr")
+    if header_row:
+        for th in header_row.find_all(["th", "td"]):
+            headers.append(th.get_text(strip=True))
+    return headers
+
 def parse_table(html, license_type):
     soup = BeautifulSoup(html, "html.parser")
     tables = soup.find_all("table")
-    print(f"  테이블 수: {len(tables)}")
     if not tables:
         return []
     table = max(tables, key=lambda t: len(t.find_all("tr")))
+    
+    # 헤더 확인
+    headers = get_headers(table)
+    print(f"  테이블 헤더: {headers}")
+    
     rows = []
     for tr in table.find_all("tr")[1:]:
         tds = tr.find_all("td")
         if len(tds) < 3:
             continue
         cols = [td.get_text(strip=True) for td in tds]
-        rows.append({
-            "seq":            cols[0] if len(cols) > 0 else "",
-            "game_name":      cols[1] if len(cols) > 1 else "",
-            "company":        cols[2] if len(cols) > 2 else "",
-            "license_number": cols[3] if len(cols) > 3 else "",
-            "platform":       cols[4] if len(cols) > 4 else "",
-            "type":           license_type,
-        })
+        
+        # 헤더 기반으로 컬럼 매핑
+        # 내자: 序号, 游戏名称, 申请单位(신청사), 审批编号(판호번호), 出版单位 등
+        # 외자: 序号, 游戏名称, 境外公司(해외회사), 国内申请单位, 审批编号 등
+        if license_type == "外资" and len(cols) >= 5:
+            rows.append({
+                "seq":              cols[0],
+                "game_name":        cols[1],
+                "foreign_company":  cols[2],  # 해외 원작사
+                "cn_company":       cols[3],  # 중국 퍼블리셔
+                "license_number":   cols[4],  # 판호번호
+                "platform":         cols[5] if len(cols) > 5 else "",
+                "type":             license_type,
+            })
+        else:
+            rows.append({
+                "seq":            cols[0],
+                "game_name":      cols[1],
+                "company":        cols[2],
+                "license_number": cols[3] if len(cols) > 3 else "",
+                "platform":       cols[4] if len(cols) > 4 else "",
+                "type":           license_type,
+            })
     return rows
 
 def save_json(data, year_month, license_type):
@@ -99,13 +122,12 @@ def run():
     ym = datetime.now().strftime("%Y-%m")
     print(f"\n=== {ym} 판호 수집 시작 ===\n")
     for license_type, url in INDEX_URLS.items():
-        print(f"[{license_type}] 접근 중... {url}")
+        print(f"[{license_type}] 접근 중...")
         try:
             html = fetch(url)
-            print(f"  페이지 로드 성공 ({len(html)} bytes)")
             notice_url = get_latest_url(html, url)
             if not notice_url:
-                print("  공시 링크 없음 — 목록 페이지에서 직접 파싱")
+                print("  공시 링크 없음")
                 data = parse_table(html, license_type)
             else:
                 print(f"  공시 URL: {notice_url}")
