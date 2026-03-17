@@ -27,18 +27,16 @@ export default function DomesticTable({ data }) {
   const [selectedCompany, setSelectedCompany] = useState("전체")
 
   const majorInData = ["전체", ...MAJOR_COMPANIES.filter(c =>
-    data.some(d => d.operator?.includes(c) || d.publisher?.includes(c))
+    data.some(d => d.operator?.includes(c))
   )]
 
   const filtered = data.filter(d => {
     const matchQuery =
       d.game_name?.includes(query) ||
-      d.operator?.includes(query) ||
-      d.publisher?.includes(query)
+      d.operator?.includes(query)
     const matchCompany =
       selectedCompany === "전체" ||
-      d.operator?.includes(selectedCompany) ||
-      d.publisher?.includes(selectedCompany)
+      d.operator?.includes(selectedCompany)
     return matchQuery && matchCompany
   })
 
@@ -108,13 +106,11 @@ export default function DomesticTable({ data }) {
                 <tr key={i}
                   style={{
                     borderBottom: "1px solid #f5f5f5",
-                    background: isMajor(d.operator) || isMajor(d.publisher)
-                      ? getColor(d.operator || d.publisher) + "08" : "",
+                    background: isMajor(d.operator) ? getColor(d.operator) + "08" : "",
                   }}
                   onMouseEnter={e => e.currentTarget.style.background = "#f9f9f9"}
                   onMouseLeave={e => e.currentTarget.style.background =
-                    isMajor(d.operator) || isMajor(d.publisher)
-                      ? getColor(d.operator || d.publisher) + "08" : ""}>
+                    isMajor(d.operator) ? getColor(d.operator) + "08" : ""}>
                   <td style={{ padding: "9px 10px", fontWeight: 500 }}>{d.game_name}</td>
                   <td style={{ padding: "9px 10px" }}>
                     <span style={{

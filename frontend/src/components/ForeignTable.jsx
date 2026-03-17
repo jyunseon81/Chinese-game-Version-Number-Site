@@ -48,7 +48,7 @@ export default function ForeignTable({ data }) {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead style={{ position: "sticky", top: 0, background: "#fff" }}>
               <tr style={{ borderBottom: "2px solid #f0f0f0" }}>
-                {["게임명", "출판사", "운영사", "판호번호", "승인일"].map(h => (
+                {["게임명", "운영사", "출판사", "판호번호", "승인일"].map(h => (
                   <th key={h} style={{ padding: "8px 10px", textAlign: "left",
                     color: "#999", fontWeight: 500, whiteSpace: "nowrap" }}>{h}</th>
                 ))}
@@ -61,8 +61,8 @@ export default function ForeignTable({ data }) {
                   onMouseEnter={e => e.currentTarget.style.background = "#f9f9f9"}
                   onMouseLeave={e => e.currentTarget.style.background = ""}>
                   <td style={{ padding: "9px 10px", fontWeight: 500 }}>{d.game_name}</td>
-                  <td style={{ padding: "9px 10px", color: "#555", fontSize: 12 }}>{d.publisher}</td>
                   <td style={{ padding: "9px 10px", color: "#555", fontSize: 12 }}>{d.operator}</td>
+                  <td style={{ padding: "9px 10px", color: "#888", fontSize: 12 }}>{d.publisher}</td>
                   <td style={{ padding: "9px 10px", fontFamily: "monospace",
                     color: "#888", fontSize: 12 }}>{d.license_number}</td>
                   <td style={{ padding: "9px 10px", color: "#aaa", fontSize: 12 }}>{d.approved_date}</td>

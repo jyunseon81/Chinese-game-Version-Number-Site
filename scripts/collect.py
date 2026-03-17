@@ -29,8 +29,7 @@ def get_latest_url(html, base_url):
             elif href.startswith("/"):
                 return "https://www.nppa.gov.cn" + href
             else:
-                base = base_url.rsplit("/", 1)[0]
-                return base + "/" + href
+                return base_url.rsplit("/", 1)[0] + "/" + href
     for a in links:
         href = a.get("href", "")
         if re.search(r'/202\d{3}/', href) and ".html" in href:
@@ -39,8 +38,7 @@ def get_latest_url(html, base_url):
             elif href.startswith("/"):
                 return "https://www.nppa.gov.cn" + href
             else:
-                base = base_url.rsplit("/", 1)[0]
-                return base + "/" + href
+                return base_url.rsplit("/", 1)[0] + "/" + href
     return None
 
 def parse_table(html, license_type):
@@ -62,16 +60,15 @@ def parse_table(html, license_type):
         if len(tds) < 3:
             continue
         cols = [td.get_text(strip=True) for td in tds]
-        # 序号, 名称, 申报类别, 出版单位, 运营单位, 批复文号, 出版物号, 批准时间
+        # 실제 순서: 序号, 名称, 运营单位, 出版单位, 批复文号, ISBN, 批准时间
         rows.append({
             "seq":            cols[0] if len(cols) > 0 else "",
             "game_name":      cols[1] if len(cols) > 1 else "",
-            "category":       cols[2] if len(cols) > 2 else "",
-            "publisher":      cols[3] if len(cols) > 3 else "",  # 출판단위
-            "operator":       cols[4] if len(cols) > 4 else "",  # 운영단위
-            "license_number": cols[5] if len(cols) > 5 else "",  # 판호번호
-            "pub_number":     cols[6] if len(cols) > 6 else "",  # 출판물번호
-            "approved_date":  cols[7] if len(cols) > 7 else "",  # 승인일
+            "operator":       cols[2] if len(cols) > 2 else "",  # 운영사
+            "publisher":      cols[3] if len(cols) > 3 else "",  # 출판사
+            "license_number": cols[4] if len(cols) > 4 else "",  # 판호번호
+            "isbn":           cols[5] if len(cols) > 5 else "",  # ISBN
+            "approved_date":  cols[6] if len(cols) > 6 else "",  # 승인일
             "type":           license_type,
         })
     return rows
