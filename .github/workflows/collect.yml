@@ -29,12 +29,8 @@ jobs:
       - name: 데이터 수집
         run: cd scripts && python collect.py
 
-      - name: 변경사항 커밋
-        run: |
-          git config user.name "판호봇"
-          git config user.email "bot@noreply.github.com"
-          git add data/
-          git diff --cached --quiet || (git commit -m "판호 업데이트" && git push)
+      - name: 수집된 data 폴더 확인
+        run: ls -la data/
 
       - uses: actions/setup-node@v4
         with:
@@ -47,7 +43,9 @@ jobs:
           npm run build
 
       - name: data 폴더 복사
-        run: cp -r data frontend/dist/data
+        run: |
+          cp -r data frontend/dist/data
+          ls -la frontend/dist/data/
 
       - uses: actions/upload-pages-artifact@v3
         with:
