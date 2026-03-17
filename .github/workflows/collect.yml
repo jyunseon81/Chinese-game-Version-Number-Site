@@ -27,7 +27,7 @@ jobs:
       - run: pip install httpx beautifulsoup4
 
       - name: 데이터 수집
-        run: cd scripts && python collect.py
+        run: python scripts/collect.py
 
       - name: 수집된 data 폴더 확인
         run: ls -la data/
