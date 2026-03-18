@@ -72,21 +72,37 @@ def parse_table(html, license_type):
         })
     return rows
 
-def filter_by_month(data, year_month):
-    """해당 월 데이터가 있으면 필터링, 없으면 전체 반환"""
+def filter_by_latest_month(data, year_month):
+    """이번 달 데이터가 있으면 이번 달만, 없으면 데이터 내 가장 최근 월만 반환"""
     year, month = year_month.split("-")
     target = f"{year}年{month}月"
-    filtered = [d for d in data if target in d.get("approved_date", "")]
-    if filtered:
-        print(f"  날짜 필터 ({target}): {len(data)}건 → {len(filtered)}건")
-        return filtered
-    else:
-        # 이번 달 데이터 없음 = 아직 미발표
-        # 가장 최근 날짜 기준으로 저장
-        if data:
-            latest_date = max(d.get("approved_date", "") for d in data)
-            print(f"  {target} 데이터 없음 → 최근 공시({latest_date}) 전체 저장 ({len(data)}건)")
+
+    # 이번 달 데이터 확인
+    this_month = [d for d in data if target in d.get("approved_date", "")]
+    if this_month:
+        print(f"  날짜 필터 ({target}): {len(this_month)}건")
+        return this_month
+
+    # 이번 달 없으면 데이터 내 가장 최근 월 추출
+    # approved_date 형식: 2026年02月26日
+    dates = [d.get("approved_date", "") for d in data if d.get("approved_date")]
+    if not dates:
         return data
+
+    # 연월만 추출해서 가장 최근 월 찾기
+    year_months = set()
+    for d in dates:
+        m = re.match(r'(\d{4}年\d{2}月)', d)
+        if m:
+            year_months.add(m.group(1))
+
+    if not year_months:
+        return data
+
+    latest = sorted(year_months)[-1]
+    filtered = [d for d in data if latest in d.get("approved_date", "")]
+    print(f"  {target} 미발표 → 최근 공시({latest}) {len(filtered)}건 저장")
+    return filtered
 
 def save_json(data, year_month, license_type):
     os.makedirs("data", exist_ok=True)
@@ -129,7 +145,7 @@ def run():
             print(f"  전체 {len(data)}건 파싱")
 
             if license_type == "外资":
-                data = filter_by_month(data, ym)
+                data = filter_by_latest_month(data, ym)
 
             save_json(data, ym, license_type)
         except Exception as e:
