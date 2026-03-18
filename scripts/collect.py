@@ -47,13 +47,11 @@ def parse_table(html, license_type):
     if not tables:
         return []
     table = max(tables, key=lambda t: len(t.find_all("tr")))
-
     headers = []
     header_row = table.find("tr")
     if header_row:
         headers = [th.get_text(strip=True) for th in header_row.find_all(["th", "td"])]
     print(f"  테이블 헤더: {headers}")
-
     rows = []
     for tr in table.find_all("tr")[1:]:
         tds = tr.find_all("td")
@@ -73,32 +71,22 @@ def parse_table(html, license_type):
     return rows
 
 def filter_by_latest_month(data, year_month):
-    """이번 달 데이터가 있으면 이번 달만, 없으면 데이터 내 가장 최근 월만 반환"""
     year, month = year_month.split("-")
     target = f"{year}年{month}月"
-
-    # 이번 달 데이터 확인
     this_month = [d for d in data if target in d.get("approved_date", "")]
     if this_month:
         print(f"  날짜 필터 ({target}): {len(this_month)}건")
         return this_month
-
-    # 이번 달 없으면 데이터 내 가장 최근 월 추출
-    # approved_date 형식: 2026年02月26日
     dates = [d.get("approved_date", "") for d in data if d.get("approved_date")]
     if not dates:
         return data
-
-    # 연월만 추출해서 가장 최근 월 찾기
     year_months = set()
     for d in dates:
         m = re.match(r'(\d{4}年\d{2}月)', d)
         if m:
             year_months.add(m.group(1))
-
     if not year_months:
         return data
-
     latest = sorted(year_months)[-1]
     filtered = [d for d in data if latest in d.get("approved_date", "")]
     print(f"  {target} 미발표 → 최근 공시({latest}) {len(filtered)}건 저장")
@@ -113,8 +101,13 @@ def save_json(data, year_month, license_type):
 
 def update_index():
     os.makedirs("data", exist_ok=True)
-    files = sorted([f for f in os.listdir("data")
-                    if f.endswith(".json") and f != "index.json"], reverse=True)
+    # report- 파일과 index.json 제외하고 판호 파일만 포함
+    files = sorted([
+        f for f in os.listdir("data")
+        if f.endswith(".json")
+        and f != "index.json"
+        and not f.startswith("report-")
+    ], reverse=True)
     entries = []
     for f in files:
         parts = f.replace(".json", "").split("-")
@@ -143,10 +136,8 @@ def run():
                 print(f"  공시 URL: {notice_url}")
                 data = parse_table(fetch(notice_url), license_type)
             print(f"  전체 {len(data)}건 파싱")
-
             if license_type == "外资":
                 data = filter_by_latest_month(data, ym)
-
             save_json(data, ym, license_type)
         except Exception as e:
             print(f"  오류: {e}")
