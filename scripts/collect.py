@@ -73,15 +73,20 @@ def parse_table(html, license_type):
     return rows
 
 def filter_by_month(data, year_month):
-    """approved_date 기준으로 해당 월 데이터만 필터링
-    예: year_month='2026-03', approved_date='2026年03月15日' → 포함
-    """
+    """해당 월 데이터가 있으면 필터링, 없으면 전체 반환"""
     year, month = year_month.split("-")
-    # 2026年03月 형식으로 변환
     target = f"{year}年{month}月"
     filtered = [d for d in data if target in d.get("approved_date", "")]
-    print(f"  날짜 필터 ({target}): {len(data)}건 → {len(filtered)}건")
-    return filtered
+    if filtered:
+        print(f"  날짜 필터 ({target}): {len(data)}건 → {len(filtered)}건")
+        return filtered
+    else:
+        # 이번 달 데이터 없음 = 아직 미발표
+        # 가장 최근 날짜 기준으로 저장
+        if data:
+            latest_date = max(d.get("approved_date", "") for d in data)
+            print(f"  {target} 데이터 없음 → 최근 공시({latest_date}) 전체 저장 ({len(data)}건)")
+        return data
 
 def save_json(data, year_month, license_type):
     os.makedirs("data", exist_ok=True)
@@ -123,7 +128,6 @@ def run():
                 data = parse_table(fetch(notice_url), license_type)
             print(f"  전체 {len(data)}건 파싱")
 
-            # 외자만 날짜 필터링 적용
             if license_type == "外资":
                 data = filter_by_month(data, ym)
 
