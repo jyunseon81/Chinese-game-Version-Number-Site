@@ -9,7 +9,7 @@ const MAJOR_COMPANIES = [
   { label: "킹넷",      key: "恺英",    color: "#f5222d" },
   { label: "타런",      key: "塔人",    color: "#52c41a" },
   { label: "아워팜",    key: "掌趣",    color: "#faad14" },
-  { label: "4399",      key: "4399",    color: "#ff6b35" },
+  { label: "4399",      key: "四三九九",    color: "#ff6b35" },
   { label: "빌리빌리",  key: "哔哩哔哩", color: "#00a1d6" },
   { label: "자이언트",  key: "巨人网络", color: "#7c3aed" },
   { label: "퍼펙트월드", key: "完美世界", color: "#0ea5e9" },
