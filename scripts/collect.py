@@ -21,27 +21,45 @@ def fetch(url):
 def get_latest_url(html, base_url):
     soup = BeautifulSoup(html, "html.parser")
     links = soup.select("a[href]")
+    
+    # 모든 링크 출력 (디버깅용)
+    print(f"  전체 링크 목록:")
+    for a in links:
+        href = a.get("href", "")
+        text = a.get_text(strip=True)
+        if href and href != "#" and "../../../../" not in href:
+            print(f"    {href} | {text[:20]}")
+
+    # 날짜 패턴 링크 중 가장 최신 것 선택
+    candidates = []
     for a in links:
         href = a.get("href", "")
         if re.search(r't\d{13}\.html', href) or re.search(r't\d{4}\d+_\d+\.html', href):
             if href.startswith("http"):
-                return href
+                candidates.append(href)
             elif href.startswith("/"):
-                return "https://www.nppa.gov.cn" + href
+                candidates.append("https://www.nppa.gov.cn" + href)
             else:
-                return base_url.rsplit("/", 1)[0] + "/" + href
-    for a in links:
-        href = a.get("href", "")
-        if re.search(r'/202\d{3}/', href) and ".html" in href:
-            if href.startswith("http"):
-                return href
-            elif href.startswith("/"):
-                return "https://www.nppa.gov.cn" + href
-            else:
-                return base_url.rsplit("/", 1)[0] + "/" + href
-    return None
+                candidates.append(base_url.rsplit("/", 1)[0] + "/" + href)
 
-def extract_month_from_url(url):
+    if not candidates:
+        for a in links:
+            href = a.get("href", "")
+            if re.search(r'/202\d{3}/', href) and ".html" in href:
+                if href.startswith("http"):
+                    candidates.append(href)
+                elif href.startswith("/"):
+                    candidates.append("https://www.nppa.gov.cn" + href)
+                else:
+                    candidates.append(base_url.rsplit("/", 1)[0] + "/" + href)
+
+    if not candidates:
+        return None
+
+    # 가장 최신 URL 반환 (정렬 후 마지막)
+    candidates.sort()
+    print(f"  후보 URL들: {candidates}")
+    return candidates[-1]def extract_month_from_url(url):
     """URL에서 연월 추출. 예: .../202606/t2026... → 2026-06"""
     m = re.search(r'/(\d{4})(\d{2})/', url)
     if m:
