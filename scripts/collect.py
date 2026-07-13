@@ -41,6 +41,13 @@ def get_latest_url(html, base_url):
                 return base_url.rsplit("/", 1)[0] + "/" + href
     return None
 
+def extract_month_from_url(url):
+    """URL에서 연월 추출. 예: .../202606/t2026... → 2026-06"""
+    m = re.search(r'/(\d{4})(\d{2})/', url)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}"
+    return None
+
 def parse_table(html, license_type):
     soup = BeautifulSoup(html, "html.parser")
     tables = soup.find_all("table")
@@ -76,21 +83,22 @@ def filter_by_latest_month(data, year_month):
     this_month = [d for d in data if target in d.get("approved_date", "")]
     if this_month:
         print(f"  날짜 필터 ({target}): {len(this_month)}건")
-        return this_month
-    dates = [d.get("approved_date", "") for d in data if d.get("approved_date")]
-    if not dates:
-        return data
+        return this_month, year_month
+    # 이번 달 없으면 데이터 내 가장 최근 월로
     year_months = set()
-    for d in dates:
-        m = re.match(r'(\d{4}年\d{2}月)', d)
+    for d in data:
+        m = re.match(r'(\d{4})年(\d{2})月', d.get("approved_date", ""))
         if m:
-            year_months.add(m.group(1))
+            year_months.add(f"{m.group(1)}-{m.group(2)}")
     if not year_months:
-        return data
+        return data, year_month
     latest = sorted(year_months)[-1]
-    filtered = [d for d in data if latest in d.get("approved_date", "")]
+    filtered = [d for d in data if latest.replace("-", "年") + "月" in d.get("approved_date", "").replace("年", "年")]
+    # approved_date 기반 필터
+    y, mo = latest.split("-")
+    filtered = [d for d in data if f"{y}年{mo}月" in d.get("approved_date", "")]
     print(f"  {target} 미발표 → 최근 공시({latest}) {len(filtered)}건 저장")
-    return filtered
+    return filtered, latest
 
 def save_json(data, year_month, license_type):
     os.makedirs("data", exist_ok=True)
@@ -101,7 +109,6 @@ def save_json(data, year_month, license_type):
 
 def update_index():
     os.makedirs("data", exist_ok=True)
-    # report- 파일과 index.json 제외하고 판호 파일만 포함
     files = sorted([
         f for f in os.listdir("data")
         if f.endswith(".json")
@@ -122,8 +129,8 @@ def update_index():
     print("  index.json 업데이트 완료")
 
 def run():
-    ym = datetime.now().strftime("%Y-%m")
-    print(f"\n=== {ym} 판호 수집 시작 ===\n")
+    current_ym = datetime.now().strftime("%Y-%m")
+    print(f"\n=== {current_ym} 판호 수집 시작 ===\n")
     for license_type, url in INDEX_URLS.items():
         print(f"[{license_type}] 접근 중...")
         try:
@@ -132,13 +139,25 @@ def run():
             if not notice_url:
                 print("  공시 링크 없음")
                 data = parse_table(html, license_type)
-            else:
-                print(f"  공시 URL: {notice_url}")
-                data = parse_table(fetch(notice_url), license_type)
+                save_json(data, current_ym, license_type)
+                continue
+
+            print(f"  공시 URL: {notice_url}")
+
+            # URL에서 실제 공시 월 추출
+            url_ym = extract_month_from_url(notice_url)
+            print(f"  공시 월: {url_ym}")
+
+            data = parse_table(fetch(notice_url), license_type)
             print(f"  전체 {len(data)}건 파싱")
+
             if license_type == "外资":
-                data = filter_by_latest_month(data, ym)
-            save_json(data, ym, license_type)
+                data, url_ym = filter_by_latest_month(data, url_ym or current_ym)
+
+            # 실제 공시 월로 저장
+            save_ym = url_ym or current_ym
+            save_json(data, save_ym, license_type)
+
         except Exception as e:
             print(f"  오류: {e}")
     update_index()
