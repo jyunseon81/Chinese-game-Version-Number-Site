@@ -21,8 +21,7 @@ def fetch(url):
 def get_latest_url(html, base_url):
     soup = BeautifulSoup(html, "html.parser")
     links = soup.select("a[href]")
-    
-    # 모든 링크 출력 (디버깅용)
+
     print(f"  전체 링크 목록:")
     for a in links:
         href = a.get("href", "")
@@ -30,7 +29,6 @@ def get_latest_url(html, base_url):
         if href and href != "#" and "../../../../" not in href:
             print(f"    {href} | {text[:20]}")
 
-    # 날짜 패턴 링크 중 가장 최신 것 선택
     candidates = []
     for a in links:
         href = a.get("href", "")
@@ -56,11 +54,11 @@ def get_latest_url(html, base_url):
     if not candidates:
         return None
 
-    # 가장 최신 URL 반환 (정렬 후 마지막)
     candidates.sort()
     print(f"  후보 URL들: {candidates}")
-    return candidates[-1]def extract_month_from_url(url):
-    """URL에서 연월 추출. 예: .../202606/t2026... → 2026-06"""
+    return candidates[-1]
+
+def extract_month_from_url(url):
     m = re.search(r'/(\d{4})(\d{2})/', url)
     if m:
         return f"{m.group(1)}-{m.group(2)}"
@@ -95,27 +93,19 @@ def parse_table(html, license_type):
         })
     return rows
 
-def filter_by_latest_month(data, year_month):
-    year, month = year_month.split("-")
-    target = f"{year}年{month}月"
-    this_month = [d for d in data if target in d.get("approved_date", "")]
-    if this_month:
-        print(f"  날짜 필터 ({target}): {len(this_month)}건")
-        return this_month, year_month
-    # 이번 달 없으면 데이터 내 가장 최근 월로
+def filter_by_latest_month(data):
+    """데이터 내 가장 최신 월 데이터만 반환"""
     year_months = set()
     for d in data:
         m = re.match(r'(\d{4})年(\d{2})月', d.get("approved_date", ""))
         if m:
             year_months.add(f"{m.group(1)}-{m.group(2)}")
     if not year_months:
-        return data, year_month
+        return data, None
     latest = sorted(year_months)[-1]
-    filtered = [d for d in data if latest.replace("-", "年") + "月" in d.get("approved_date", "").replace("年", "年")]
-    # approved_date 기반 필터
     y, mo = latest.split("-")
     filtered = [d for d in data if f"{y}年{mo}月" in d.get("approved_date", "")]
-    print(f"  {target} 미발표 → 최근 공시({latest}) {len(filtered)}건 저장")
+    print(f"  최신 월 필터 ({latest}): {len(data)}건 → {len(filtered)}건")
     return filtered, latest
 
 def save_json(data, year_month, license_type):
@@ -149,6 +139,7 @@ def update_index():
 def run():
     current_ym = datetime.now().strftime("%Y-%m")
     print(f"\n=== {current_ym} 판호 수집 시작 ===\n")
+
     for license_type, url in INDEX_URLS.items():
         print(f"[{license_type}] 접근 중...")
         try:
@@ -156,13 +147,9 @@ def run():
             notice_url = get_latest_url(html, url)
             if not notice_url:
                 print("  공시 링크 없음")
-                data = parse_table(html, license_type)
-                save_json(data, current_ym, license_type)
                 continue
 
             print(f"  공시 URL: {notice_url}")
-
-            # URL에서 실제 공시 월 추출
             url_ym = extract_month_from_url(notice_url)
             print(f"  공시 월: {url_ym}")
 
@@ -170,14 +157,15 @@ def run():
             print(f"  전체 {len(data)}건 파싱")
 
             if license_type == "外资":
-                data, url_ym = filter_by_latest_month(data, url_ym or current_ym)
-
-            # 실제 공시 월로 저장
-            save_ym = url_ym or current_ym
-            save_json(data, save_ym, license_type)
+                # 최신 월 데이터만 필터링
+                data, latest_ym = filter_by_latest_month(data)
+                save_json(data, latest_ym or url_ym or current_ym, license_type)
+            else:
+                save_json(data, url_ym or current_ym, license_type)
 
         except Exception as e:
             print(f"  오류: {e}")
+
     update_index()
     print("\n=== 완료 ===")
 
