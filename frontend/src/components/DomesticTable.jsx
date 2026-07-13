@@ -9,7 +9,7 @@ const MAJOR_COMPANIES = [
   { label: "킹넷",      key: "恺英",    color: "#f5222d" },
   { label: "타런",      key: "塔人",    color: "#52c41a" },
   { label: "아워팜",    key: "掌趣",    color: "#faad14" },
-  { label: "4399",     key: "四三九九", color: "#ff6b35" },
+  { label: "4399",      key: "4399",    color: "#ff6b35" },
   { label: "빌리빌리",  key: "哔哩哔哩", color: "#00a1d6" },
   { label: "자이언트",  key: "巨人网络", color: "#7c3aed" },
   { label: "퍼펙트월드", key: "完美世界", color: "#0ea5e9" },
@@ -17,15 +17,22 @@ const MAJOR_COMPANIES = [
   { label: "바이트댄스", key: "字节跳动", color: "#333333" },
 ]
 
-function getColor(company) {
+function getMatchedCompany(operator, publisher) {
   for (const c of MAJOR_COMPANIES) {
-    if (company?.includes(c.key)) return c.color
+    if (operator?.includes(c.key) || publisher?.includes(c.key)) return c
   }
-  return "#888"
+  return null
 }
 
-function isMajor(company) {
-  return MAJOR_COMPANIES.some(c => company?.includes(c.key))
+function getColor(operator, publisher) {
+  const matched = getMatchedCompany(operator, publisher)
+  return matched ? matched.color : "#888"
+}
+
+function isMajor(operator, publisher) {
+  return MAJOR_COMPANIES.some(c =>
+    operator?.includes(c.key) || publisher?.includes(c.key)
+  )
 }
 
 export default function DomesticTable({ data }) {
@@ -35,9 +42,12 @@ export default function DomesticTable({ data }) {
   const filtered = data.filter(d => {
     const matchQuery =
       d.game_name?.includes(query) ||
-      d.operator?.includes(query)
+      d.operator?.includes(query) ||
+      d.publisher?.includes(query)
     const matchCompany =
-      !selectedKey || d.operator?.includes(selectedKey)
+      !selectedKey ||
+      d.operator?.includes(selectedKey) ||
+      d.publisher?.includes(selectedKey)
     return matchQuery && matchCompany
   })
 
@@ -76,7 +86,9 @@ export default function DomesticTable({ data }) {
         </button>
 
         {MAJOR_COMPANIES.map(c => {
-          const count = data.filter(d => d.operator?.includes(c.key)).length
+          const count = data.filter(d =>
+            d.operator?.includes(c.key) || d.publisher?.includes(c.key)
+          ).length
           const isSelected = selectedKey === c.key
           return (
             <button
@@ -131,38 +143,51 @@ export default function DomesticTable({ data }) {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead style={{ position: "sticky", top: 0, background: "#fff" }}>
               <tr style={{ borderBottom: "2px solid #f0f0f0" }}>
-                {["게임명", "운영사", "판호번호", "승인일"].map(h => (
+                {["게임명", "운영사", "출판사", "판호번호", "승인일"].map(h => (
                   <th key={h} style={{ padding: "8px 10px", textAlign: "left",
                     color: "#999", fontWeight: 500, whiteSpace: "nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((d, i) => (
-                <tr key={i}
-                  style={{
-                    borderBottom: "1px solid #f5f5f5",
-                    background: isMajor(d.operator) ? getColor(d.operator) + "08" : "",
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#f5f5f5"}
-                  onMouseLeave={e => e.currentTarget.style.background =
-                    isMajor(d.operator) ? getColor(d.operator) + "08" : ""}>
-                  <td style={{ padding: "9px 10px", fontWeight: 500 }}>{d.game_name}</td>
-                  <td style={{ padding: "9px 10px" }}>
-                    <span style={{
-                      background: getColor(d.operator) + "18",
-                      color: getColor(d.operator),
-                      borderRadius: 6, padding: "2px 7px",
-                      fontSize: 12, fontWeight: 500,
-                    }}>
-                      {d.operator}
-                    </span>
-                  </td>
-                  <td style={{ padding: "9px 10px", fontFamily: "monospace",
-                    color: "#888", fontSize: 12 }}>{d.license_number}</td>
-                  <td style={{ padding: "9px 10px", color: "#aaa", fontSize: 12 }}>{d.approved_date}</td>
-                </tr>
-              ))}
+              {filtered.map((d, i) => {
+                const color = getColor(d.operator, d.publisher)
+                const major = isMajor(d.operator, d.publisher)
+                return (
+                  <tr key={i}
+                    style={{
+                      borderBottom: "1px solid #f5f5f5",
+                      background: major ? color + "08" : "",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#f5f5f5"}
+                    onMouseLeave={e => e.currentTarget.style.background = major ? color + "08" : ""}>
+                    <td style={{ padding: "9px 10px", fontWeight: 500 }}>{d.game_name}</td>
+                    <td style={{ padding: "9px 10px" }}>
+                      <span style={{
+                        background: getColor(d.operator, d.publisher) + "18",
+                        color: getColor(d.operator, d.publisher),
+                        borderRadius: 6, padding: "2px 7px",
+                        fontSize: 12, fontWeight: 500,
+                      }}>
+                        {d.operator}
+                      </span>
+                    </td>
+                    <td style={{ padding: "9px 10px" }}>
+                      <span style={{
+                        background: getColor(d.operator, d.publisher) + "18",
+                        color: getColor(d.operator, d.publisher),
+                        borderRadius: 6, padding: "2px 7px",
+                        fontSize: 12, fontWeight: 500,
+                      }}>
+                        {d.publisher}
+                      </span>
+                    </td>
+                    <td style={{ padding: "9px 10px", fontFamily: "monospace",
+                      color: "#888", fontSize: 12 }}>{d.license_number}</td>
+                    <td style={{ padding: "9px 10px", color: "#aaa", fontSize: 12 }}>{d.approved_date}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
