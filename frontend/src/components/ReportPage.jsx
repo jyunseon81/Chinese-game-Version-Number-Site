@@ -48,7 +48,22 @@ function getCompanyName(operator, publisher) {
   }
   return null
 }
-
+// 중국어 → 영문 자동 번역
+async function translateToEnglish(chineseName) {
+  try {
+    const res = await fetch(
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chineseName)}&langpair=zh|en`
+    )
+    const data = await res.json()
+    const translated = data.responseData?.translatedText || ""
+    // 번역 실패하거나 중국어 그대로면 원문 반환
+    if (!translated || translated === chineseName) return chineseName
+    console.log(`번역: ${chineseName} → ${translated}`)
+    return translated
+  } catch {
+    return chineseName
+  }
+}
 // RAWG API로 게임 검색
 async function searchRAWG(gameName) {
   try {
@@ -128,60 +143,67 @@ export default function ReportPage({ month, onClose }) {
     })
   }, [month])
 
-  // 한국 IP 검색
-  async function searchKoreanIP() {
-    setSearching(true)
-    setKoreanIPs([])
-    const results = []
+async function searchKoreanIP() {
+  setSearching(true)
+  setKoreanIPs([])
+  const results = []
 
-    for (const game of foreign) {
-      // 게임명으로 RAWG 검색
-      const rawgResults = await searchRAWG(game.game_name)
-      let found = false
-      let matchedGame = null
-      let koreanDev = null
+  for (const game of foreign) {
+    // 1. 입력된 한국어/영문명 있으면 우선 사용
+    const manualName = editData.foreign.find(
+      d => d.game_name_cn === game.game_name
+    )?.game_name_kr
 
-      for (const r of rawgResults) {
-        // 개발사 정보 상세 조회
-        try {
-          const detail = await fetch(
-            `https://api.rawg.io/api/games/${r.id}?key=${RAWG_KEY}`
-          ).then(res => res.json())
+    // 2. 없으면 자동 번역
+    const searchName = manualName || await translateToEnglish(game.game_name)
 
-          const devs = detail.developers || []
-          for (const dev of devs) {
-            if (isKoreanDev(dev.name)) {
-              found = true
-              matchedGame = r
-              koreanDev = dev.name
-              break
-            }
+    console.log(`검색: ${game.game_name} → ${searchName}`)
+
+    const rawgResults = await searchRAWG(searchName)
+    let found = false
+    let matchedGame = null
+    let koreanDev = null
+
+    for (const r of rawgResults) {
+      try {
+        const detail = await fetch(
+          `https://api.rawg.io/api/games/${r.id}?key=${RAWG_KEY}`
+        ).then(res => res.json())
+
+        const devs = detail.developers || []
+        for (const dev of devs) {
+          if (isKoreanDev(dev.name)) {
+            found = true
+            matchedGame = r
+            koreanDev = dev.name
+            break
           }
-        } catch { continue }
-        if (found) break
-      }
-
-      if (found) {
-        results.push({
-          game_name_cn: game.game_name,
-          game_name_en: matchedGame?.name || "",
-          operator: game.operator,
-          publisher: game.publisher,
-          license_number: game.license_number,
-          approved_date: game.approved_date,
-          korean_dev: koreanDev,
-          rawg_url: `https://rawg.io/games/${matchedGame?.slug}`,
-          rawg_image: matchedGame?.background_image || "",
-        })
-      }
-
-      // API 과부하 방지
-      await new Promise(r => setTimeout(r, 300))
+        }
+      } catch { continue }
+      if (found) break
     }
 
-    setKoreanIPs(results)
-    setSearching(false)
+    if (found) {
+      results.push({
+        game_name_cn: game.game_name,
+        game_name_en: matchedGame?.name || searchName,
+        operator: game.operator,
+        publisher: game.publisher,
+        license_number: game.license_number,
+        approved_date: game.approved_date,
+        korean_dev: koreanDev,
+        rawg_url: `https://rawg.io/games/${matchedGame?.slug}`,
+        searched_as: searchName,
+      })
+    }
+
+    // API 과부하 방지 (번역 + RAWG 각각 딜레이)
+    await new Promise(r => setTimeout(r, 500))
   }
+
+  setKoreanIPs(results)
+  setSearching(false)
+}
 
   function updateDom(idx, field, value) {
     setEditData(prev => ({
