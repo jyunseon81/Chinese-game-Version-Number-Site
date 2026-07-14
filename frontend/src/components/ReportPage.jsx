@@ -149,16 +149,21 @@ async function searchKoreanIP() {
   const results = []
 
   for (const game of foreign) {
-    // 1. 입력된 한국어/영문명 있으면 우선 사용
+    // 1. 수동 입력된 영문/한국어명 우선 사용
     const manualName = editData.foreign.find(
       d => d.game_name_cn === game.game_name
     )?.game_name_kr
 
     // 2. 없으면 자동 번역
-    const searchName = manualName || await translateToEnglish(game.game_name)
+    let searchName = manualName
+    if (!searchName) {
+      searchName = await translateToEnglish(game.game_name)
+      await new Promise(r => setTimeout(r, 300))
+    }
 
     console.log(`검색: ${game.game_name} → ${searchName}`)
 
+    // 3. 번역된 영문명으로 RAWG 검색
     const rawgResults = await searchRAWG(searchName)
     let found = false
     let matchedGame = null
@@ -197,7 +202,6 @@ async function searchKoreanIP() {
       })
     }
 
-    // API 과부하 방지 (번역 + RAWG 각각 딜레이)
     await new Promise(r => setTimeout(r, 500))
   }
 
