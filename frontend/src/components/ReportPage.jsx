@@ -29,6 +29,22 @@ const KOREAN_DEVELOPERS = [
   "컴투스", "카카오", "위메이드", "펄어비스", "그라비티",
 ]
 
+// 알려진 한국 IP 게임 중국어 → 영문명 매핑
+const KOREAN_IP_MAPPING = {
+  "夜鸦": "Night Crows",
+  "黎明觉醒": "Dawn of Awakening",
+  "泡泡玛特": "",
+  "菜鸟冒险": "",
+  "天涯明月刀": "Age of Wulin",
+  "奥比岛": "Aurcus Online",
+  "蓝色协议": "Blue Protocol",
+  "流放之路": "Path of Exile",
+  "命运方舟": "Lost Ark",
+  "黑色沙漠": "Black Desert",
+  "天堂W": "Lineage W",
+  "永劫无间": "Naraka Bladepoint",
+}
+
 function isKoreanDev(developerName) {
   const lower = developerName?.toLowerCase() || ""
   return KOREAN_DEVELOPERS.some(k => lower.includes(k.toLowerCase()))
@@ -143,6 +159,11 @@ export default function ReportPage({ month, onClose }) {
     })
   }, [month])
 
+// 매핑 테이블 먼저 확인
+let searchName = manualName
+  || KOREAN_IP_MAPPING[game.game_name]
+  || await translateToEnglish(game.game_name)
+  
 async function searchKoreanIP() {
   setSearching(true)
   setKoreanIPs([])
