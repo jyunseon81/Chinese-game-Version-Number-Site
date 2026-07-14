@@ -1,6 +1,4 @@
-import { useState, useEffect } from "react"
-
-const BASE = "/Chinese-game-Version-Number-Site/data"
+import { useState } from "react"
 
 const MAJOR_COMPANIES = [
   { label: "텐센트",    key: "腾讯",    color: "#1677ff" },
@@ -19,336 +17,174 @@ const MAJOR_COMPANIES = [
   { label: "바이트댄스", key: "字节跳动", color: "#333333" },
 ]
 
-function getCompany(operator, publisher) {
+function getColor(operator, publisher) {
   for (const c of MAJOR_COMPANIES) {
-    if (operator?.includes(c.key) || publisher?.includes(c.key)) return c
+    if (operator?.includes(c.key) || publisher?.includes(c.key)) return c.color
   }
-  return null
+  return "#888"
 }
 
-function getCompanyName(operator, publisher) {
-  // 운영사 또는 출판사 중 주요 게임사 키워드가 있는 쪽 반환
-  for (const c of MAJOR_COMPANIES) {
-    if (operator?.includes(c.key)) return { label: c.label, cn: operator }
-    if (publisher?.includes(c.key)) return { label: c.label, cn: publisher }
-  }
-  return null
+function isMajor(operator, publisher) {
+  return MAJOR_COMPANIES.some(c =>
+    operator?.includes(c.key) || publisher?.includes(c.key)
+  )
 }
 
-export default function ReportPage({ month, onClose }) {
-  const [domestic, setDomestic] = useState([])
-  const [foreign, setForeign]   = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [editData, setEditData] = useState({ domestic: [], foreign: [] })
-  const [initialized, setInitialized] = useState(false)
+export default function DomesticTable({ data }) {
+  const [query, setQuery] = useState("")
+  const [selectedKey, setSelectedKey] = useState(null)
 
-  const displayMonth = `${month?.split("-")[0]}/${parseInt(month?.split("-")[1])}월`
+  const filtered = data.filter(d => {
+    const matchQuery =
+      d.game_name?.includes(query) ||
+      d.operator?.includes(query) ||
+      d.publisher?.includes(query)
+    const matchCompany =
+      !selectedKey ||
+      d.operator?.includes(selectedKey) ||
+      d.publisher?.includes(selectedKey)
+    return matchQuery && matchCompany
+  })
 
-  useEffect(() => {
-    if (!month) return
-    setLoading(true)
-    const load = (type) =>
-      fetch(`${BASE}/${month}-${type}.json`)
-        .then(r => r.ok ? r.json() : [])
-        .catch(() => [])
-    Promise.all([load("内资"), load("外资")]).then(([dom, for_]) => {
-      setDomestic(dom)
-      setForeign(for_)
-
-      // 주요 게임사만 필터링해서 편집 데이터 초기화
-      const majorDom = dom
-        .filter(d => getCompany(d.operator, d.publisher))
-        .map((d, i) => {
-          const co = getCompanyName(d.operator, d.publisher)
-          return {
-            no: i + 1,
-            company_label: co?.label || "",
-            company_cn: co?.cn || d.operator,
-            company_sub: "",
-            game_name_cn: d.game_name,
-            game_name_kr: "",
-            platform: "",
-            genre: "",
-            features: "",
-            license_number: d.license_number,
-            approved_date: d.approved_date,
-          }
-        })
-
-      const majorFor = for_
-        .filter(d => getCompany(d.operator, d.publisher))
-        .map((d, i) => {
-          const co = getCompanyName(d.operator, d.publisher)
-          return {
-            no: i + 1,
-            company_label: co?.label || "",
-            company_cn: co?.cn || d.operator,
-            company_sub: "",
-            game_name_cn: d.game_name,
-            game_name_kr: "",
-            platform: "",
-            genre: "",
-            notes: "",
-            license_number: d.license_number,
-            approved_date: d.approved_date,
-          }
-        })
-
-      setEditData({ domestic: majorDom, foreign: majorFor })
-      setInitialized(true)
-      setLoading(false)
-    })
-  }, [month])
-
-  function updateDom(idx, field, value) {
-    setEditData(prev => ({
-      ...prev,
-      domestic: prev.domestic.map((d, i) => i === idx ? { ...d, [field]: value } : d)
-    }))
-  }
-
-  function updateFor(idx, field, value) {
-    setEditData(prev => ({
-      ...prev,
-      foreign: prev.foreign.map((d, i) => i === idx ? { ...d, [field]: value } : d)
-    }))
-  }
-
-  const inputStyle = {
-    width: "100%", boxSizing: "border-box",
-    padding: "5px 8px", borderRadius: 6,
-    border: "1px solid #e8e8e8", fontSize: 12,
-    fontFamily: "inherit", resize: "vertical",
-    background: "#fafffe",
-  }
-
-  const thStyle = {
-    padding: "10px 12px", textAlign: "left",
-    fontWeight: 600, color: "#444",
-    borderBottom: "2px solid #e0e0e0",
-    borderRight: "1px solid #e0e0e0",
-    whiteSpace: "nowrap", background: "#f5f5f5",
-  }
-
-  const tdStyle = {
-    padding: "10px 12px",
-    borderBottom: "1px solid #f0f0f0",
-    borderRight: "1px solid #f0f0f0",
-    verticalAlign: "top",
-  }
+  const selectedInfo = MAJOR_COMPANIES.find(c => c.key === selectedKey)
 
   return (
     <div style={{
-      position: "fixed", inset: 0, background: "#fff",
-      zIndex: 1000, overflowY: "auto",
-      fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif"
+      background: "#fff", borderRadius: 12,
+      border: "1px solid #f0f0f0", padding: 20,
+      boxShadow: "0 2px 8px rgba(0,0,0,0.06)"
     }}>
-      {/* 헤더 */}
-      <div style={{
-        position: "sticky", top: 0, background: "#fff",
-        borderBottom: "1px solid #f0f0f0", padding: "14px 24px",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        zIndex: 10, boxShadow: "0 2px 8px rgba(0,0,0,0.04)"
-      }}>
-        <h1 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>
-          📊 {displayMonth} 판호 보고서
-        </h1>
-        <button onClick={onClose}
+      <div style={{ display: "flex", justifyContent: "space-between",
+        alignItems: "center", marginBottom: 14 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>🏠 내자 판호</h2>
+          <p style={{ margin: "2px 0 0", fontSize: 12, color: "#aaa" }}>전체 국산 게임</p>
+        </div>
+        <span style={{ background: "#f5f5f5", color: "#555",
+          borderRadius: 12, padding: "2px 10px", fontSize: 13 }}>
+          {filtered.length}건
+        </span>
+      </div>
+
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+        <button
+          onClick={() => setSelectedKey(null)}
           style={{
-            padding: "8px 18px", borderRadius: 8, fontSize: 13,
-            background: "#f5f5f5", color: "#555", border: "none",
-            cursor: "pointer"
+            padding: "4px 12px", borderRadius: 12, fontSize: 12,
+            border: "1px solid",
+            borderColor: !selectedKey ? "#1a73e8" : "#e8e8e8",
+            background: !selectedKey ? "#1a73e8" : "#fafafa",
+            color: !selectedKey ? "#fff" : "#666",
+            cursor: "pointer", fontWeight: !selectedKey ? 600 : 400,
           }}>
-          ✕ 닫기
+          전체
         </button>
+
+        {MAJOR_COMPANIES.map(c => {
+          const count = data.filter(d =>
+            d.operator?.includes(c.key) || d.publisher?.includes(c.key)
+          ).length
+          const isSelected = selectedKey === c.key
+          return (
+            <button
+              key={c.key}
+              onClick={() => setSelectedKey(isSelected ? null : c.key)}
+              style={{
+                padding: "4px 12px", borderRadius: 12, fontSize: 12,
+                border: "1px solid",
+                borderColor: isSelected ? c.color : "#e8e8e8",
+                background: isSelected ? c.color : "#fafafa",
+                color: isSelected ? "#fff" : "#555",
+                cursor: "pointer",
+                fontWeight: isSelected ? 600 : 400,
+                opacity: count === 0 ? 0.35 : 1,
+              }}>
+              {c.label}
+              {count > 0 && (
+                <span style={{
+                  marginLeft: 4,
+                  background: isSelected ? "rgba(255,255,255,0.3)" : c.color + "22",
+                  color: isSelected ? "#fff" : c.color,
+                  borderRadius: 8, padding: "0 5px", fontSize: 11,
+                }}>
+                  {count}
+                </span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
-      <div style={{ padding: "28px 24px", maxWidth: 1200, margin: "0 auto" }}>
-        {loading && <p style={{ color: "#999" }}>데이터 로딩 중...</p>}
+      <input
+        placeholder="게임명 또는 회사명 검색..."
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        style={{
+          width: "100%", boxSizing: "border-box",
+          padding: "7px 12px", borderRadius: 8,
+          border: "1px solid #e8e8e8", fontSize: 14,
+          marginBottom: 12, outline: "none",
+        }}
+      />
 
-        {initialized && (
-          <>
-            {/* 안내 */}
-            <div style={{
-              background: "#f0f7ff", borderRadius: 10,
-              padding: "14px 18px", marginBottom: 28, fontSize: 13, color: "#444"
-            }}>
-              💡 회사 부연설명, 게임명 한국어, 플랫폼, 장르, 게임 특징/비고를 직접 입력해주세요.
-              판호번호와 승인일은 자동으로 채워져 있어요.
-            </div>
-
-            {/* 내자 보고서 */}
-            <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: "#333" }}>
-              [참고] {displayMonth} 주요 게임사 내자 판호 발급 내역
-            </h2>
-
-            {editData.domestic.length === 0 ? (
-              <p style={{ color: "#ccc", marginBottom: 32 }}>이번 달 주요 게임사 내자 판호가 없습니다</p>
-            ) : (
-              <div style={{ overflowX: "auto", marginBottom: 40 }}>
-                <table style={{ width: "100%", borderCollapse: "collapse",
-                  fontSize: 13, border: "1px solid #e0e0e0" }}>
-                  <thead>
-                    <tr>
-                      {["　", "기업명", "게임명", "플랫폼", "장르", "게임 특징"].map(h => (
-                        <th key={h} style={thStyle}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {editData.domestic.map((d, i) => {
-                      const co = MAJOR_COMPANIES.find(c => d.company_label === c.label)
-                      return (
-                        <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
-                          <td style={{ ...tdStyle, textAlign: "center", color: "#aaa", width: 32 }}>
-                            {d.no}
-                          </td>
-                          <td style={{ ...tdStyle, minWidth: 160 }}>
-                            <div style={{ fontWeight: 700, color: co?.color || "#333", marginBottom: 4 }}>
-                              {d.company_label}
-                            </div>
-                            <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>
-                              {d.company_cn}
-                            </div>
-                            <input
-                              value={d.company_sub}
-                              onChange={e => updateDom(i, "company_sub", e.target.value)}
-                              placeholder="(예: 텐센트 자회사)"
-                              style={{ ...inputStyle }}
-                            />
-                          </td>
-                          <td style={{ ...tdStyle, minWidth: 140 }}>
-                            <div style={{ fontWeight: 600, marginBottom: 4 }}>{d.game_name_cn}</div>
-                            <input
-                              value={d.game_name_kr}
-                              onChange={e => updateDom(i, "game_name_kr", e.target.value)}
-                              placeholder="한국어 발음"
-                              style={{ ...inputStyle }}
-                            />
-                          </td>
-                          <td style={{ ...tdStyle, minWidth: 100 }}>
-                            <input
-                              value={d.platform}
-                              onChange={e => updateDom(i, "platform", e.target.value)}
-                              placeholder="모바일, PC..."
-                              style={{ ...inputStyle }}
-                            />
-                          </td>
-                          <td style={{ ...tdStyle, minWidth: 100 }}>
-                            <input
-                              value={d.genre}
-                              onChange={e => updateDom(i, "genre", e.target.value)}
-                              placeholder="장르"
-                              style={{ ...inputStyle }}
-                            />
-                          </td>
-                          <td style={{ ...tdStyle, minWidth: 220 }}>
-                            <textarea
-                              value={d.features}
-                              onChange={e => updateDom(i, "features", e.target.value)}
-                              placeholder="게임 특징 입력 (모르면 비워두세요)"
-                              rows={3}
-                              style={{ ...inputStyle }}
-                            />
-                            <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
-                              {d.license_number} · {d.approved_date}
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* 외자 보고서 */}
-            <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: "#333" }}>
-              [참고] {displayMonth} 주요 게임사 외자 판호 발급 내역
-            </h2>
-
-            {editData.foreign.length === 0 ? (
-              <p style={{ color: "#ccc" }}>이번 달 주요 게임사 외자 판호가 없습니다</p>
-            ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse",
-                  fontSize: 13, border: "1px solid #e0e0e0" }}>
-                  <thead>
-                    <tr>
-                      {["　", "기업명", "게임명", "플랫폼", "장르", "비고"].map(h => (
-                        <th key={h} style={thStyle}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {editData.foreign.map((d, i) => {
-                      const co = MAJOR_COMPANIES.find(c => d.company_label === c.label)
-                      return (
-                        <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
-                          <td style={{ ...tdStyle, textAlign: "center", color: "#aaa", width: 32 }}>
-                            {d.no}
-                          </td>
-                          <td style={{ ...tdStyle, minWidth: 160 }}>
-                            <div style={{ fontWeight: 700, color: co?.color || "#fa8c16", marginBottom: 4 }}>
-                              {d.company_label}
-                            </div>
-                            <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>
-                              {d.company_cn}
-                            </div>
-                            <input
-                              value={d.company_sub}
-                              onChange={e => updateFor(i, "company_sub", e.target.value)}
-                              placeholder="(예: 텐센트 자회사)"
-                              style={{ ...inputStyle }}
-                            />
-                          </td>
-                          <td style={{ ...tdStyle, minWidth: 140 }}>
-                            <div style={{ fontWeight: 600, marginBottom: 4 }}>{d.game_name_cn}</div>
-                            <input
-                              value={d.game_name_kr}
-                              onChange={e => updateFor(i, "game_name_kr", e.target.value)}
-                              placeholder="한국어 게임명"
-                              style={{ ...inputStyle }}
-                            />
-                          </td>
-                          <td style={{ ...tdStyle, minWidth: 100 }}>
-                            <input
-                              value={d.platform}
-                              onChange={e => updateFor(i, "platform", e.target.value)}
-                              placeholder="모바일, PC..."
-                              style={{ ...inputStyle }}
-                            />
-                          </td>
-                          <td style={{ ...tdStyle, minWidth: 100 }}>
-                            <input
-                              value={d.genre}
-                              onChange={e => updateFor(i, "genre", e.target.value)}
-                              placeholder="장르"
-                              style={{ ...inputStyle }}
-                            />
-                          </td>
-                          <td style={{ ...tdStyle, minWidth: 220 }}>
-                            <textarea
-                              value={d.notes}
-                              onChange={e => updateFor(i, "notes", e.target.value)}
-                              placeholder="비고 입력"
-                              rows={3}
-                              style={{ ...inputStyle }}
-                            />
-                            <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
-                              {d.license_number} · {d.approved_date}
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+      {filtered.length === 0 ? (
+        <p style={{ color: "#ccc", textAlign: "center", padding: "24px 0", fontSize: 14 }}>
+          {selectedKey
+            ? `이번 달 ${selectedInfo?.label} 판호가 없습니다`
+            : "데이터가 없습니다"}
+        </p>
+      ) : (
+        <div style={{ overflowX: "auto", maxHeight: 600, overflowY: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead style={{ position: "sticky", top: 0, background: "#fff" }}>
+              <tr style={{ borderBottom: "2px solid #f0f0f0" }}>
+                {["게임명", "운영사", "출판사", "판호번호", "승인일"].map(h => (
+                  <th key={h} style={{ padding: "8px 10px", textAlign: "left",
+                    color: "#999", fontWeight: 500, whiteSpace: "nowrap" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((d, i) => {
+                const color = getColor(d.operator, d.publisher)
+                const major = isMajor(d.operator, d.publisher)
+                return (
+                  <tr key={i}
+                    style={{
+                      borderBottom: "1px solid #f5f5f5",
+                      background: major ? color + "08" : "",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#f5f5f5"}
+                    onMouseLeave={e => e.currentTarget.style.background = major ? color + "08" : ""}>
+                    <td style={{ padding: "9px 10px", fontWeight: 500 }}>{d.game_name}</td>
+                    <td style={{ padding: "9px 10px" }}>
+                      <span style={{
+                        background: color + "18", color: color,
+                        borderRadius: 6, padding: "2px 7px",
+                        fontSize: 12, fontWeight: 500,
+                      }}>
+                        {d.operator}
+                      </span>
+                    </td>
+                    <td style={{ padding: "9px 10px" }}>
+                      <span style={{
+                        background: color + "18", color: color,
+                        borderRadius: 6, padding: "2px 7px",
+                        fontSize: 12, fontWeight: 500,
+                      }}>
+                        {d.publisher}
+                      </span>
+                    </td>
+                    <td style={{ padding: "9px 10px", fontFamily: "monospace",
+                      color: "#888", fontSize: 12 }}>{d.license_number}</td>
+                    <td style={{ padding: "9px 10px", color: "#aaa", fontSize: 12 }}>{d.approved_date}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
