@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 
 const BASE = "/Chinese-game-Version-Number-Site/data"
+const RAWG_KEY = "2e7d3c82fdac48a48e8418440813a07e"
 
 const MAJOR_COMPANIES = [
   { label: "텐센트",    key: "腾讯",    color: "#1677ff" },
@@ -19,6 +20,20 @@ const MAJOR_COMPANIES = [
   { label: "바이트댄스", key: "字节跳动", color: "#333333" },
 ]
 
+const KOREAN_DEVELOPERS = [
+  "nexon", "netmarble", "ncsoft", "krafton", "smilegate",
+  "com2us", "kakao", "wemade", "pearl abyss", "gravity",
+  "neowiz", "webzen", "devsisters", "shift up", "nimble neuron",
+  "xlgames", "4:33", "joycity", "gamevil", "vespa",
+  "넥슨", "넷마블", "엔씨소프트", "크래프톤", "스마일게이트",
+  "컴투스", "카카오", "위메이드", "펄어비스", "그라비티",
+]
+
+function isKoreanDev(developerName) {
+  const lower = developerName?.toLowerCase() || ""
+  return KOREAN_DEVELOPERS.some(k => lower.includes(k.toLowerCase()))
+}
+
 function getCompany(operator, publisher) {
   for (const c of MAJOR_COMPANIES) {
     if (operator?.includes(c.key) || publisher?.includes(c.key)) return c
@@ -27,12 +42,24 @@ function getCompany(operator, publisher) {
 }
 
 function getCompanyName(operator, publisher) {
-  // 운영사 또는 출판사 중 주요 게임사 키워드가 있는 쪽 반환
   for (const c of MAJOR_COMPANIES) {
     if (operator?.includes(c.key)) return { label: c.label, cn: operator }
     if (publisher?.includes(c.key)) return { label: c.label, cn: publisher }
   }
   return null
+}
+
+// RAWG API로 게임 검색
+async function searchRAWG(gameName) {
+  try {
+    const res = await fetch(
+      `https://api.rawg.io/api/games?key=${RAWG_KEY}&search=${encodeURIComponent(gameName)}&page_size=3`
+    )
+    const data = await res.json()
+    return data.results || []
+  } catch {
+    return []
+  }
 }
 
 export default function ReportPage({ month, onClose }) {
@@ -41,6 +68,8 @@ export default function ReportPage({ month, onClose }) {
   const [loading, setLoading]   = useState(true)
   const [editData, setEditData] = useState({ domestic: [], foreign: [] })
   const [initialized, setInitialized] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const [koreanIPs, setKoreanIPs] = useState([])
 
   const displayMonth = `${month?.split("-")[0]}/${parseInt(month?.split("-")[1])}월`
 
@@ -55,7 +84,6 @@ export default function ReportPage({ month, onClose }) {
       setDomestic(dom)
       setForeign(for_)
 
-      // 주요 게임사만 필터링해서 편집 데이터 초기화
       const majorDom = dom
         .filter(d => getCompany(d.operator, d.publisher))
         .map((d, i) => {
@@ -99,6 +127,61 @@ export default function ReportPage({ month, onClose }) {
       setLoading(false)
     })
   }, [month])
+
+  // 한국 IP 검색
+  async function searchKoreanIP() {
+    setSearching(true)
+    setKoreanIPs([])
+    const results = []
+
+    for (const game of foreign) {
+      // 게임명으로 RAWG 검색
+      const rawgResults = await searchRAWG(game.game_name)
+      let found = false
+      let matchedGame = null
+      let koreanDev = null
+
+      for (const r of rawgResults) {
+        // 개발사 정보 상세 조회
+        try {
+          const detail = await fetch(
+            `https://api.rawg.io/api/games/${r.id}?key=${RAWG_KEY}`
+          ).then(res => res.json())
+
+          const devs = detail.developers || []
+          for (const dev of devs) {
+            if (isKoreanDev(dev.name)) {
+              found = true
+              matchedGame = r
+              koreanDev = dev.name
+              break
+            }
+          }
+        } catch { continue }
+        if (found) break
+      }
+
+      if (found) {
+        results.push({
+          game_name_cn: game.game_name,
+          game_name_en: matchedGame?.name || "",
+          operator: game.operator,
+          publisher: game.publisher,
+          license_number: game.license_number,
+          approved_date: game.approved_date,
+          korean_dev: koreanDev,
+          rawg_url: `https://rawg.io/games/${matchedGame?.slug}`,
+          rawg_image: matchedGame?.background_image || "",
+        })
+      }
+
+      // API 과부하 방지
+      await new Promise(r => setTimeout(r, 300))
+    }
+
+    setKoreanIPs(results)
+    setSearching(false)
+  }
 
   function updateDom(idx, field, value) {
     setEditData(prev => ({
@@ -168,20 +251,101 @@ export default function ReportPage({ month, onClose }) {
 
         {initialized && (
           <>
+            {/* 한국 IP 검색 섹션 */}
+            <div style={{
+              background: "#fff8f0", borderRadius: 12,
+              border: "1px solid #ffe0b2", padding: "20px 24px",
+              marginBottom: 32,
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between",
+                alignItems: "center", marginBottom: 12 }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>
+                    🇰🇷 외자 판호 한국 IP 검색
+                  </h2>
+                  <p style={{ margin: "4px 0 0", fontSize: 12, color: "#888" }}>
+                    RAWG DB로 외자 판호 {foreign.length}건의 개발사 국적을 자동 검색해요
+                  </p>
+                </div>
+                <button
+                  onClick={searchKoreanIP}
+                  disabled={searching}
+                  style={{
+                    padding: "10px 20px", borderRadius: 8, fontSize: 13,
+                    background: searching ? "#ccc" : "#e8590c",
+                    color: "#fff", border: "none",
+                    cursor: searching ? "not-allowed" : "pointer",
+                    fontWeight: 600, whiteSpace: "nowrap",
+                  }}>
+                  {searching ? "검색 중..." : "🔍 한국 IP 검색"}
+                </button>
+              </div>
+
+              {searching && (
+                <p style={{ color: "#888", fontSize: 13, margin: 0 }}>
+                  ⏳ {foreign.length}개 게임을 순서대로 검색 중... 잠시 기다려주세요
+                </p>
+              )}
+
+              {!searching && koreanIPs.length > 0 && (
+                <div>
+                  <p style={{ color: "#e8590c", fontWeight: 600, fontSize: 13, marginBottom: 10 }}>
+                    🎮 한국 IP 게임 {koreanIPs.length}건 발견!
+                  </p>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: "#fff3e0" }}>
+                        {["게임명 (중국어)", "영문명", "한국 개발사", "운영사", "판호번호"].map(h => (
+                          <th key={h} style={{ padding: "8px 12px", textAlign: "left",
+                            fontWeight: 600, color: "#555", borderBottom: "2px solid #ffe0b2" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {koreanIPs.map((d, i) => (
+                        <tr key={i} style={{ borderBottom: "1px solid #fff3e0",
+                          background: i % 2 === 0 ? "#fff" : "#fff8f0" }}>
+                          <td style={{ padding: "10px 12px", fontWeight: 600 }}>{d.game_name_cn}</td>
+                          <td style={{ padding: "10px 12px" }}>
+                            <a href={d.rawg_url} target="_blank" rel="noreferrer"
+                              style={{ color: "#1a73e8", textDecoration: "none" }}>
+                              {d.game_name_en}
+                            </a>
+                          </td>
+                          <td style={{ padding: "10px 12px", color: "#e8590c", fontWeight: 500 }}>
+                            {d.korean_dev}
+                          </td>
+                          <td style={{ padding: "10px 12px", color: "#555", fontSize: 12 }}>
+                            {d.operator}
+                          </td>
+                          <td style={{ padding: "10px 12px", fontFamily: "monospace",
+                            color: "#888", fontSize: 12 }}>{d.license_number}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {!searching && koreanIPs.length === 0 && foreign.length > 0 && (
+                <p style={{ color: "#aaa", fontSize: 13, margin: 0 }}>
+                  검색 버튼을 눌러 한국 IP 게임을 찾아보세요
+                </p>
+              )}
+            </div>
+
             {/* 안내 */}
             <div style={{
               background: "#f0f7ff", borderRadius: 10,
               padding: "14px 18px", marginBottom: 28, fontSize: 13, color: "#444"
             }}>
               💡 회사 부연설명, 게임명 한국어, 플랫폼, 장르, 게임 특징/비고를 직접 입력해주세요.
-              판호번호와 승인일은 자동으로 채워져 있어요.
             </div>
 
             {/* 내자 보고서 */}
-            <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: "#333" }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>
               [참고] {displayMonth} 주요 게임사 내자 판호 발급 내역
             </h2>
-
             {editData.domestic.length === 0 ? (
               <p style={{ color: "#ccc", marginBottom: 32 }}>이번 달 주요 게임사 내자 판호가 없습니다</p>
             ) : (
@@ -200,56 +364,36 @@ export default function ReportPage({ month, onClose }) {
                       const co = MAJOR_COMPANIES.find(c => d.company_label === c.label)
                       return (
                         <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
-                          <td style={{ ...tdStyle, textAlign: "center", color: "#aaa", width: 32 }}>
-                            {d.no}
-                          </td>
+                          <td style={{ ...tdStyle, textAlign: "center", color: "#aaa", width: 32 }}>{d.no}</td>
                           <td style={{ ...tdStyle, minWidth: 160 }}>
                             <div style={{ fontWeight: 700, color: co?.color || "#333", marginBottom: 4 }}>
                               {d.company_label}
                             </div>
-                            <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>
-                              {d.company_cn}
-                            </div>
-                            <input
-                              value={d.company_sub}
+                            <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>{d.company_cn}</div>
+                            <input value={d.company_sub}
                               onChange={e => updateDom(i, "company_sub", e.target.value)}
-                              placeholder="(예: 텐센트 자회사)"
-                              style={{ ...inputStyle }}
-                            />
+                              placeholder="(예: 텐센트 자회사)" style={inputStyle} />
                           </td>
                           <td style={{ ...tdStyle, minWidth: 140 }}>
                             <div style={{ fontWeight: 600, marginBottom: 4 }}>{d.game_name_cn}</div>
-                            <input
-                              value={d.game_name_kr}
+                            <input value={d.game_name_kr}
                               onChange={e => updateDom(i, "game_name_kr", e.target.value)}
-                              placeholder="한국어 발음"
-                              style={{ ...inputStyle }}
-                            />
+                              placeholder="한국어 발음" style={inputStyle} />
                           </td>
                           <td style={{ ...tdStyle, minWidth: 100 }}>
-                            <input
-                              value={d.platform}
+                            <input value={d.platform}
                               onChange={e => updateDom(i, "platform", e.target.value)}
-                              placeholder="모바일, PC..."
-                              style={{ ...inputStyle }}
-                            />
+                              placeholder="모바일, PC..." style={inputStyle} />
                           </td>
                           <td style={{ ...tdStyle, minWidth: 100 }}>
-                            <input
-                              value={d.genre}
+                            <input value={d.genre}
                               onChange={e => updateDom(i, "genre", e.target.value)}
-                              placeholder="장르"
-                              style={{ ...inputStyle }}
-                            />
+                              placeholder="장르" style={inputStyle} />
                           </td>
                           <td style={{ ...tdStyle, minWidth: 220 }}>
-                            <textarea
-                              value={d.features}
+                            <textarea value={d.features}
                               onChange={e => updateDom(i, "features", e.target.value)}
-                              placeholder="게임 특징 입력 (모르면 비워두세요)"
-                              rows={3}
-                              style={{ ...inputStyle }}
-                            />
+                              placeholder="게임 특징 입력" rows={3} style={inputStyle} />
                             <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
                               {d.license_number} · {d.approved_date}
                             </div>
@@ -263,10 +407,9 @@ export default function ReportPage({ month, onClose }) {
             )}
 
             {/* 외자 보고서 */}
-            <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12, color: "#333" }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>
               [참고] {displayMonth} 주요 게임사 외자 판호 발급 내역
             </h2>
-
             {editData.foreign.length === 0 ? (
               <p style={{ color: "#ccc" }}>이번 달 주요 게임사 외자 판호가 없습니다</p>
             ) : (
@@ -285,56 +428,36 @@ export default function ReportPage({ month, onClose }) {
                       const co = MAJOR_COMPANIES.find(c => d.company_label === c.label)
                       return (
                         <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
-                          <td style={{ ...tdStyle, textAlign: "center", color: "#aaa", width: 32 }}>
-                            {d.no}
-                          </td>
+                          <td style={{ ...tdStyle, textAlign: "center", color: "#aaa", width: 32 }}>{d.no}</td>
                           <td style={{ ...tdStyle, minWidth: 160 }}>
                             <div style={{ fontWeight: 700, color: co?.color || "#fa8c16", marginBottom: 4 }}>
                               {d.company_label}
                             </div>
-                            <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>
-                              {d.company_cn}
-                            </div>
-                            <input
-                              value={d.company_sub}
+                            <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>{d.company_cn}</div>
+                            <input value={d.company_sub}
                               onChange={e => updateFor(i, "company_sub", e.target.value)}
-                              placeholder="(예: 텐센트 자회사)"
-                              style={{ ...inputStyle }}
-                            />
+                              placeholder="(예: 텐센트 자회사)" style={inputStyle} />
                           </td>
                           <td style={{ ...tdStyle, minWidth: 140 }}>
                             <div style={{ fontWeight: 600, marginBottom: 4 }}>{d.game_name_cn}</div>
-                            <input
-                              value={d.game_name_kr}
+                            <input value={d.game_name_kr}
                               onChange={e => updateFor(i, "game_name_kr", e.target.value)}
-                              placeholder="한국어 게임명"
-                              style={{ ...inputStyle }}
-                            />
+                              placeholder="한국어 게임명" style={inputStyle} />
                           </td>
                           <td style={{ ...tdStyle, minWidth: 100 }}>
-                            <input
-                              value={d.platform}
+                            <input value={d.platform}
                               onChange={e => updateFor(i, "platform", e.target.value)}
-                              placeholder="모바일, PC..."
-                              style={{ ...inputStyle }}
-                            />
+                              placeholder="모바일, PC..." style={inputStyle} />
                           </td>
                           <td style={{ ...tdStyle, minWidth: 100 }}>
-                            <input
-                              value={d.genre}
+                            <input value={d.genre}
                               onChange={e => updateFor(i, "genre", e.target.value)}
-                              placeholder="장르"
-                              style={{ ...inputStyle }}
-                            />
+                              placeholder="장르" style={inputStyle} />
                           </td>
                           <td style={{ ...tdStyle, minWidth: 220 }}>
-                            <textarea
-                              value={d.notes}
+                            <textarea value={d.notes}
                               onChange={e => updateFor(i, "notes", e.target.value)}
-                              placeholder="비고 입력"
-                              rows={3}
-                              style={{ ...inputStyle }}
-                            />
+                              placeholder="비고 입력" rows={3} style={inputStyle} />
                             <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
                               {d.license_number} · {d.approved_date}
                             </div>
