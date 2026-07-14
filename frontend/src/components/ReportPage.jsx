@@ -159,11 +159,8 @@ export default function ReportPage({ month, onClose }) {
     })
   }, [month])
 
-// 매핑 테이블 먼저 확인
-let searchName = manualName
-  || KOREAN_IP_MAPPING[game.game_name]
-  || await translateToEnglish(game.game_name)
-  
+
+
 async function searchKoreanIP() {
   setSearching(true)
   setKoreanIPs([])
@@ -175,8 +172,8 @@ async function searchKoreanIP() {
       d => d.game_name_cn === game.game_name
     )?.game_name_kr
 
-    // 2. 없으면 자동 번역
-    let searchName = manualName
+    // 2. 매핑 테이블 확인 → 없으면 자동 번역
+    let searchName = manualName || KOREAN_IP_MAPPING[game.game_name]
     if (!searchName) {
       searchName = await translateToEnglish(game.game_name)
       await new Promise(r => setTimeout(r, 300))
